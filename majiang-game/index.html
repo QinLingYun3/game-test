@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>麻将连连看</title>
+  <title>连连看</title>
   <style>
     * {
       box-sizing: border-box;
@@ -462,25 +462,41 @@
       return cell.base;
     }
 
-    function findPath(r1, c1, r2, c2, layer) {
+    function getLayerRank(layer) {
+      if (layer === 'extra') return 3;
+      if (layer === 'mid') return 2;
+      return 1;
+    }
+
+    function getPathLayer(layer1, layer2 = layer1) {
+      return getLayerRank(layer1) >= getLayerRank(layer2) ? layer1 : layer2;
+    }
+
+    function isCellEmptyForLayer(cell, layer) {
+      if (layer === 'extra') return cell.extra === null;
+      if (layer === 'mid') return cell.mid === null && cell.extra === null;
+      return cell.base === null && cell.mid === null && cell.extra === null;
+    }
+
+    function resolvePairPath(r1, c1, layer1, r2, c2, layer2) {
+      const tile1 = getTile(grid[r1][c1], layer1);
+      const tile2 = getTile(grid[r2][c2], layer2);
+      if (!tile1 || !tile2 || tile1.typeIdx !== tile2.typeIdx) return null;
+
+      return findPath(r1, c1, r2, c2, getPathLayer(layer1, layer2), layer1, layer2);
+    }
+
+    function findPath(r1, c1, r2, c2, pathLayer, startLayer = pathLayer, endLayer = pathLayer) {
       if (r1 === r2 && c1 === c2) return null;
       if (r1 < 0 || r1 >= ROWS || c1 < 0 || c1 >= COLS || r2 < 0 || r2 >= ROWS || c2 < 0 || c2 >= COLS) return null;
 
-      const gt = (r, c) => {
-        const cell = grid[r][c];
-        if (layer === 'cross') return cell.extra || cell.mid || cell.base || null;
-        return getTile(cell, layer) || null;
-      };
-      const t1 = gt(r1, c1); const t2 = gt(r2, c2);
+      const t1 = getTile(grid[r1][c1], startLayer);
+      const t2 = getTile(grid[r2][c2], endLayer);
       if (!t1 || !t2 || t1.typeIdx !== t2.typeIdx) return null;
 
       const empty = (r, c) => {
         if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return true;
-        const cell = grid[r][c];
-        if (layer === 'extra') return cell.extra === null;
-        if (layer === 'mid') return cell.mid === null;
-        if (layer === 'base') return cell.base === null && cell.mid === null;
-        return cell.base === null && cell.mid === null && cell.extra === null;
+        return isCellEmptyForLayer(grid[r][c], pathLayer);
       };
       const sc = (r1, c1, r2, c2) => {
         if (r1 === r2) { for (let c = Math.min(c1, c2) + 1; c < Math.max(c1, c2); c++) if (!empty(r1, c)) return false; return true; }
@@ -515,8 +531,7 @@
       for (let i = 0; i < candidates.length; i++) for (let j = i + 1; j < candidates.length; j++) {
         if (candidates[i].tile.typeIdx !== candidates[j].tile.typeIdx) continue;
         if (layer === 'cross') {
-          const conn = (candidates[i].l === candidates[j].l) ? candidates[i].l : 'cross';
-          if (findPath(candidates[i].r, candidates[i].c, candidates[j].r, candidates[j].c, conn)) return true;
+          if (resolvePairPath(candidates[i].r, candidates[i].c, candidates[i].l, candidates[j].r, candidates[j].c, candidates[j].l)) return true;
         } else {
           if (findPath(candidates[i].r, candidates[i].c, candidates[j].r, candidates[j].c, layer)) return true;
         }
@@ -654,10 +669,7 @@
         return;
       }
 
-      let connLayer = selected.layer;
-      if (selected.layer !== layer) connLayer = 'cross';
-
-      const path = findPath(selected.row, selected.col, row, col, connLayer);
+      const path = resolvePairPath(selected.row, selected.col, selected.layer, row, col, layer);
       if (!path) {
         showMsg('无法连通');
         selected = { row, col, layer };
