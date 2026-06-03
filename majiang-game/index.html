@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>麻将连连看</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background: linear-gradient(135deg, #1a472a 0%, #2d6a4f 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Segoe UI', 'Noto Sans SC', sans-serif;
+      color: #fff;
+    }
+    .container {
+      width: 100%;
+      max-width: 520px;
+      padding: 12px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .title {
+      font-size: 28px;
+      font-weight: 800;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.4);
+      letter-spacing: 2px;
+    }
+    .info-row {
+      display: flex;
+      gap: 8px;
+      font-size: 14px;
+      background: rgba(0,0,0,0.3);
+      padding: 4px 12px;
+      border-radius: 20px;
+      align-items: center;
+    }
+    .info-row span {
+      margin: 0 4px;
+    }
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      justify-content: center;
+    }
+    .btn {
+      background: #e9c46a;
+      border: none;
+      color: #1a1a2e;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 8px 18px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .btn:hover {
+      background: #f0d68a;
+    }
+    .btn:active {
+      transform: scale(0.96);
+    }
+    .btn.secondary {
+      background: #457b9d;
+      color: #fff;
+    }
+    .btn.secondary:hover {
+      background: #5a8fb0;
+    }
+    .level-group {
+      display: inline-flex;
+      gap: 4px;
+    }
+    .level-btn {
+      background: #2a4a6a;
+      color: #fff;
+      font-size: 13px;
+      padding: 6px 12px;
+      border: 2px solid transparent;
+    }
+    .level-btn.active {
+      background: #e9c46a;
+      color: #1a1a2e;
+      border-color: #f4a261;
+      font-weight: 800;
+    }
+    .level-btn:hover {
+      background: #3a6a8a;
+    }
+    .board-wrapper {
+      position: relative;
+      display: inline-block;
+      margin: 0 auto;
+      padding: 45px;
+    }
+    .board {
+      display: grid;
+      gap: 4px;
+      background: rgba(0,0,0,0.25);
+      border-radius: 16px;
+      justify-content: center;
+      margin: 0 auto;
+    }
+    #lineCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      border-radius: 24px;
+      z-index: 5;
+    }
+    .cell {
+      width: 56px;
+      height: 64px;
+      background: #fefae0;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3), inset 0 1px 2px rgba(255,255,255,0.7);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a1a2e;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.3s;
+      user-select: none;
+      position: relative;
+      z-index: 1;
+    }
+    .cell.top-tile {
+      width: 46px;
+      height: 52px;
+      background: #ffe5b4;
+      font-size: 12px;
+      position: relative;
+      margin: -6px auto 0;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.8);
+      z-index: 10;
+      border: 2px solid #d4a373;
+    }
+    .cell.has-top {
+      /* Cell containing both base and top tile */
+    }
+    .top-overlay {
+      position: absolute;
+      top: 0px;
+      left: 0px;
+      width: 52px;
+      height: 60px;
+      background: #ffd700;
+      border-radius: 8px;
+      border: 3px solid #e6a817;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      z-index: 15;
+      pointer-events: auto;
+      transition: transform 0.15s, box-shadow 0.15s;
+      cursor: pointer;
+    }
+    .top-overlay .suit-icon { font-size: 18px; }
+    .top-overlay .suit-text { font-size: 11px; color: #3d2b1f; }
+    .mid-overlay {
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      width: 52px;
+      height: 60px;
+      background: #ffd700;
+      border-radius: 8px;
+      border: 3px solid #e6a817;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      z-index: 15;
+      pointer-events: auto;
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+      cursor: pointer;
+    }
+    .mid-overlay .suit-icon { font-size: 15px; }
+    .mid-overlay .suit-text { font-size: 9px; color: #3d2b1f; }
+    .mid-overlay.selected {
+      transform: scale(1.1);
+      border-color: #f4a261;
+      box-shadow: 0 0 0 3px #f4a261, 0 0 16px #f4a261;
+      z-index: 25;
+    }
+    .extra-overlay {
+      position: absolute;
+      top: -4px;
+      left: -4px;
+      width: 48px;
+      height: 56px;
+      background: #ff6b6b;
+      border-radius: 6px;
+      border: 3px solid #c92a2a;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 700;
+      z-index: 20;
+      pointer-events: auto;
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+      cursor: pointer;
+    }
+    .extra-overlay .suit-icon { font-size: 12px; }
+    .extra-overlay .suit-text { font-size: 8px; color: #fff; }
+    .extra-overlay.selected {
+      transform: scale(1.12);
+      border-color: #ffd700;
+      box-shadow: 0 0 0 3px #ffd700, 0 0 16px #ffd700;
+      z-index: 25;
+    }
+      font-size: 16px;
+    }
+    .cell.top-tile .suit-text {
+      font-size: 11px;
+    }
+    .cell.selected {
+      transform: scale(1.08);
+      box-shadow: 0 0 0 3px #f4a261, 0 0 12px #f4a261;
+      z-index: 20;
+    }
+    .cell.removed {
+      background: transparent !important;
+      box-shadow: none !important;
+      cursor: default;
+      pointer-events: none;
+      opacity: 0;
+      transform: scale(0.5);
+    }
+    .cell .suit-icon {
+      font-size: 20px;
+      margin-right: 0;
+    }
+    .cell .suit-text {
+      font-size: 14px;
+      margin-top: -2px;
+    }
+    /* 牌面文字颜色（已废弃，保留兼容） */
+
+    /* overlay */
+    .overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    .overlay-box {
+      background: #1a1a2e;
+      padding: 40px 50px;
+      border-radius: 20px;
+      text-align: center;
+      box-shadow: 0 0 30px rgba(233,196,106,0.4);
+    }
+    .overlay-box h1 {
+      font-size: 40px;
+      margin-bottom: 12px;
+      color: #e9c46a;
+    }
+    .overlay-box p {
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+    .overlay-box .btn {
+      font-size: 20px;
+      padding: 12px 40px;
+    }
+    .hide {
+      display: none !important;
+    }
+    .message {
+      text-align: center;
+      font-size: 13px;
+      margin-top: 8px;
+      color: #e0e0e0;
+      min-height: 20px;
+    }
+    @media (max-width: 480px) {
+      .cell {
+        width: 44px;
+        height: 52px;
+        font-size: 13px;
+      }
+      .cell .suit-icon {
+        font-size: 16px;
+      }
+      .board {
+        gap: 3px;
+        padding: 6px;
+      }
+      .title {
+        font-size: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="title">🐾 连连看</div>
+    <div class="info-row">
+      <span>🏆 <span id="scoreDisplay">0</span></span>
+      <span>|</span>
+      <span>👑 <span id="bestScoreDisplay">0</span></span>
+      <span>|</span>
+      <span>⏱ <span id="timerDisplay">00:00</span></span>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn" id="newGameBtn">🔄 新局</button>
+    <button class="btn secondary" id="shuffleBtn">♻ 洗牌</button>
+    <span class="level-group">
+      <button class="btn level-btn" data-level="1">1层</button>
+      <button class="btn level-btn active" data-level="2">2层</button>
+      <button class="btn level-btn" data-level="3">3层</button>
+    </span>
+  </div>
+  <div class="board-wrapper" id="boardWrapper">
+    <div class="board" id="board"></div>
+    <canvas id="lineCanvas"></canvas>
+  </div>
+  <div class="message" id="message"></div>
+</div>
+
+<div class="overlay hide" id="overlay">
+  <div class="overlay-box">
+    <h1 id="overlayTitle">🎉 You Win!</h1>
+    <p id="overlayMsg">得分: 0</p>
+    <button class="btn" id="overlayBtn">再来一局</button>
+  </div>
+</div>
+
+<script>
+  (function() {
+    'use strict';
+    const ROWS = 8;
+    const COLS = 8;
+    const TYPES = [
+      { icon: '🐱', text: '小猫', suit: 'animal' },
+      { icon: '🐶', text: '小狗', suit: 'animal' },
+      { icon: '🐰', text: '兔子', suit: 'animal' },
+      { icon: '🐼', text: '熊猫', suit: 'animal' },
+      { icon: '🐯', text: '老虎', suit: 'animal' },
+      { icon: '🦁', text: '狮子', suit: 'animal' },
+      { icon: '🐘', text: '大象', suit: 'animal' },
+      { icon: '🐵', text: '猴子', suit: 'animal' },
+      { icon: '🐍', text: '蛇', suit: 'animal' },
+      { icon: '🐢', text: '乌龟', suit: 'animal' },
+      { icon: '🐟', text: '鱼', suit: 'animal' },
+      { icon: '🐦', text: '小鸟', suit: 'animal' },
+      { icon: '🐝', text: '蜜蜂', suit: 'animal' },
+      { icon: '🦋', text: '蝴蝶', suit: 'animal' },
+      { icon: '🐮', text: '牛', suit: 'animal' },
+      { icon: '🐑', text: '羊', suit: 'animal' },
+    ];
+
+    // ----- state (two-layer) -----
+    let grid = [];
+    let score = 0;
+    let bestScore = parseInt(localStorage.getItem('majiangBest')) || 0;
+    let selected = null;
+    let timerInterval = null;
+    let seconds = 0;
+    let gameOver = false;
+
+    let currentLevel = 2;
+
+    const boardEl = document.getElementById('board');
+    const scoreEl = document.getElementById('scoreDisplay');
+    const bestScoreEl = document.getElementById('bestScoreDisplay');
+    const timerEl = document.getElementById('timerDisplay');
+    const messageEl = document.getElementById('message');
+    const newGameBtn = document.getElementById('newGameBtn');
+    const shuffleBtn = document.getElementById('shuffleBtn');
+    const overlay = document.getElementById('overlay');
+    const overlayTitle = document.getElementById('overlayTitle');
+    const overlayMsg = document.getElementById('overlayMsg');
+    const overlayBtn = document.getElementById('overlayBtn');
+    const lineCanvas = document.getElementById('lineCanvas');
+    const ctx = lineCanvas.getContext('2d');
+
+    function shuffleArray(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+    function clone(t) { return { typeIdx: t.typeIdx, icon: t.icon, text: t.text, suit: t.suit }; }
+
+    function initGrid(level) {
+      const baseTiles = [];
+      for (let t = 0; t < TYPES.length; t++) for (let c = 0; c < 4; c++) baseTiles.push({ ...clone(TYPES[t]), typeIdx: t });
+      shuffleArray(baseTiles);
+
+      let midTiles = [];
+      let extraTiles = [];
+
+      if (level >= 2) {
+        for (let t = 0; t < 9; t++) for (let c = 0; c < 4; c++) midTiles.push({ ...clone(TYPES[t]), typeIdx: t });
+        shuffleArray(midTiles);
+      }
+      if (level >= 3) {
+        for (let t = 0; t < 8; t++) for (let c = 0; c < 2; c++) extraTiles.push({ ...clone(TYPES[t]), typeIdx: t });
+        shuffleArray(extraTiles);
+      }
+
+      grid = [];
+      let idx = 0;
+      for (let r = 0; r < ROWS; r++) {
+        const row = [];
+        for (let c = 0; c < COLS; c++) row.push({ base: clone(baseTiles[idx++]), mid: null, extra: null });
+        grid.push(row);
+      }
+
+      if (level >= 2) {
+        let midIdx = 0;
+        for (let r = 1; r <= 6; r++) for (let c = 1; c <= 6; c++) grid[r][c].mid = clone(midTiles[midIdx++]);
+      }
+
+      if (level >= 3) {
+        let topIdx = 0;
+        for (let r = 2; r <= 5; r++) for (let c = 2; c <= 5; c++) grid[r][c].extra = clone(extraTiles[topIdx++]);
+      }
+    }
+
+    function getTile(cell, layer) {
+      if (layer === 'extra') return cell.extra;
+      if (layer === 'mid') return cell.mid;
+      return cell.base;
+    }
+
+    function findPath(r1, c1, r2, c2, layer) {
+      if (r1 === r2 && c1 === c2) return null;
+      if (r1 < 0 || r1 >= ROWS || c1 < 0 || c1 >= COLS || r2 < 0 || r2 >= ROWS || c2 < 0 || c2 >= COLS) return null;
+
+      const gt = (r, c) => {
+        const cell = grid[r][c];
+        if (layer === 'cross') return cell.extra || cell.mid || cell.base || null;
+        return getTile(cell, layer) || null;
+      };
+      const t1 = gt(r1, c1); const t2 = gt(r2, c2);
+      if (!t1 || !t2 || t1.typeIdx !== t2.typeIdx) return null;
+
+      const empty = (r, c) => {
+        if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return true;
+        const cell = grid[r][c];
+        if (layer === 'extra') return cell.extra === null;
+        if (layer === 'mid') return cell.mid === null;
+        if (layer === 'base') return cell.base === null && cell.mid === null;
+        return cell.base === null && cell.mid === null && cell.extra === null;
+      };
+      const sc = (r1, c1, r2, c2) => {
+        if (r1 === r2) { for (let c = Math.min(c1, c2) + 1; c < Math.max(c1, c2); c++) if (!empty(r1, c)) return false; return true; }
+        if (c1 === c2) { for (let r = Math.min(r1, r2) + 1; r < Math.max(r1, r2); r++) if (!empty(r, c1)) return false; return true; }
+        return false;
+      };
+      if ((r1 === r2 || c1 === c2) && sc(r1, c1, r2, c2)) return [{ row: r1, col: c1 }, { row: r2, col: c2 }];
+      if (empty(r1, c2) && sc(r1, c1, r1, c2) && sc(r1, c2, r2, c2)) return [{ row: r1, col: c1 }, { row: r1, col: c2 }, { row: r2, col: c2 }];
+      if (empty(r2, c1) && sc(r1, c1, r2, c1) && sc(r2, c1, r2, c2)) return [{ row: r1, col: c1 }, { row: r2, col: c1 }, { row: r2, col: c2 }];
+      if ((c1 === 0 || c2 === 0) && empty(r1, -1) && empty(r2, -1) && sc(r1, c1, r1, -1) && sc(r1, -1, r2, -1) && sc(r2, -1, r2, c2)) return [{ row: r1, col: c1 }, { row: r1, col: -1 }, { row: r2, col: -1 }, { row: r2, col: c2 }];
+      if ((c1 === COLS-1 || c2 === COLS-1) && empty(r1, COLS) && empty(r2, COLS) && sc(r1, c1, r1, COLS) && sc(r1, COLS, r2, COLS) && sc(r2, COLS, r2, c2)) return [{ row: r1, col: c1 }, { row: r1, col: COLS }, { row: r2, col: COLS }, { row: r2, col: c2 }];
+      if ((r1 === 0 || r2 === 0) && empty(-1, c1) && empty(-1, c2) && sc(r1, c1, -1, c1) && sc(-1, c1, -1, c2) && sc(-1, c2, r2, c2)) return [{ row: r1, col: c1 }, { row: -1, col: c1 }, { row: -1, col: c2 }, { row: r2, col: c2 }];
+      if ((r1 === ROWS-1 || r2 === ROWS-1) && empty(ROWS, c1) && empty(ROWS, c2) && sc(r1, c1, ROWS, c1) && sc(ROWS, c1, ROWS, c2) && sc(ROWS, c2, r2, c2)) return [{ row: r1, col: c1 }, { row: ROWS, col: c1 }, { row: ROWS, col: c2 }, { row: r2, col: c2 }];
+      for (let c = -1; c <= COLS; c++) { if (c === c1 || c === c2) continue; if (empty(r1, c) && empty(r2, c) && sc(r1, c1, r1, c) && sc(r1, c, r2, c) && sc(r2, c, r2, c2)) return [{ row: r1, col: c1 }, { row: r1, col: c }, { row: r2, col: c }, { row: r2, col: c2 }]; }
+      for (let r = -1; r <= ROWS; r++) { if (r === r1 || r === r2) continue; if (empty(r, c1) && empty(r, c2) && sc(r1, c1, r, c1) && sc(r, c1, r, c2) && sc(r, c2, r2, c2)) return [{ row: r1, col: c1 }, { row: r, col: c1 }, { row: r, col: c2 }, { row: r2, col: c2 }]; }
+      return null;
+    }
+
+    function hasValidMove(layer) {
+      const candidates = [];
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+        const d = grid[r][c];
+        if (layer === 'extra') { if (d.extra) candidates.push({ r, c, tile: d.extra, l: 'extra' }); }
+        else if (layer === 'mid') { if (d.mid && !d.extra) candidates.push({ r, c, tile: d.mid, l: 'mid' }); }
+        else if (layer === 'base') { if (d.base && !d.mid && !d.extra) candidates.push({ r, c, tile: d.base, l: 'base' }); }
+        else if (layer === 'cross') {
+          if (d.extra) candidates.push({ r, c, tile: d.extra, l: 'extra' });
+          if (d.mid && !d.extra) candidates.push({ r, c, tile: d.mid, l: 'mid' });
+          if (d.base && !d.mid && !d.extra) candidates.push({ r, c, tile: d.base, l: 'base' });
+        }
+      }
+      for (let i = 0; i < candidates.length; i++) for (let j = i + 1; j < candidates.length; j++) {
+        if (candidates[i].tile.typeIdx !== candidates[j].tile.typeIdx) continue;
+        if (layer === 'cross') {
+          const conn = (candidates[i].l === candidates[j].l) ? candidates[i].l : 'cross';
+          if (findPath(candidates[i].r, candidates[i].c, candidates[j].r, candidates[j].c, conn)) return true;
+        } else {
+          if (findPath(candidates[i].r, candidates[i].c, candidates[j].r, candidates[j].c, layer)) return true;
+        }
+      }
+      return false;
+    }
+
+    function shuffleRemaining() {
+      const ep = [], epp = []; const mp = [], mpp = []; const bp = [], bpp = [];
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+        const d = grid[r][c];
+        if (d.extra) { ep.push(d.extra); epp.push({ r, c }); }
+        if (d.mid && !d.extra) { mp.push(d.mid); mpp.push({ r, c }); }
+        if (d.base && !d.mid && !d.extra) { bp.push(d.base); bpp.push({ r, c }); }
+      }
+      shuffleArray(ep); for (let i = 0; i < epp.length; i++) grid[epp[i].r][epp[i].c].extra = ep[i];
+      shuffleArray(mp); for (let i = 0; i < mpp.length; i++) grid[mpp[i].r][mpp[i].c].mid = mp[i];
+      shuffleArray(bp); for (let i = 0; i < bpp.length; i++) grid[bpp[i].r][bpp[i].c].base = bp[i];
+
+      let attempt = 0;
+      while (attempt < 20 && !hasValidMove('extra') && !hasValidMove('mid') && !hasValidMove('base') && !hasValidMove('cross')) {
+        shuffleArray(ep); for (let i = 0; i < epp.length; i++) grid[epp[i].r][epp[i].c].extra = ep[i];
+        shuffleArray(mp); for (let i = 0; i < mpp.length; i++) grid[mpp[i].r][mpp[i].c].mid = mp[i];
+        shuffleArray(bp); for (let i = 0; i < bpp.length; i++) grid[bpp[i].r][bpp[i].c].base = bp[i];
+        attempt++;
+      }
+      renderBoard();
+      if (!hasValidMove('extra') && !hasValidMove('mid') && !hasValidMove('base') && !hasValidMove('cross')) showMsg('⚠ 无可用配对');
+      else showMsg('♻ 已重新洗牌');
+    }
+
+    function countRemaining() {
+      let c = 0;
+      for (let r = 0; r < ROWS; r++) for (let cc = 0; cc < COLS; cc++) {
+        if (grid[r][cc].base) c++;
+        if (grid[r][cc].mid) c++;
+        if (grid[r][cc].extra) c++;
+      }
+      return c;
+    }
+
+    function renderBoard(sel) {
+      boardEl.innerHTML = '';
+      boardEl.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+        const el = document.createElement('div');
+        el.className = 'cell';
+        el.dataset.row = r; el.dataset.col = c;
+        const d = grid[r][c];
+
+        if (d.base || d.mid || d.extra) {
+          // Base content
+          if (d.base) {
+            el.dataset.suit = d.base.suit;
+            el.innerHTML = `<span class="suit-icon">${d.base.icon}</span><span class="suit-text">${d.base.text}</span>`;
+          }
+
+          // Mid overlay (gold)
+          if (d.mid) {
+            el.classList.add('has-top');
+            const midDiv = document.createElement('div');
+            midDiv.className = 'mid-overlay';
+            midDiv.dataset.suit = d.mid.suit;
+            midDiv.innerHTML = `<span class="suit-icon">${d.mid.icon}</span><span class="suit-text">${d.mid.text}</span>`;
+            midDiv.addEventListener('click', (e) => { e.stopPropagation(); onCellClick(r, c, 'mid'); });
+            el.appendChild(midDiv);
+          }
+
+          // Extra overlay (red, topmost)
+          if (d.extra) {
+            const extraDiv = document.createElement('div');
+            extraDiv.className = 'extra-overlay';
+            extraDiv.dataset.suit = d.extra.suit;
+            extraDiv.innerHTML = `<span class="suit-icon">${d.extra.icon}</span><span class="suit-text">${d.extra.text}</span>`;
+            extraDiv.addEventListener('click', (e) => { e.stopPropagation(); onCellClick(r, c, 'extra'); });
+            el.appendChild(extraDiv);
+          }
+
+          // Cell-level click for direct base or mid-only cells
+          if (!d.mid && !d.extra) {
+            el.addEventListener('click', () => onCellClick(r, c, 'base'));
+          } else if (d.mid && !d.extra && !d.base) {
+            el.addEventListener('click', () => onCellClick(r, c, 'mid'));
+          }
+        } else {
+          el.classList.add('removed');
+        }
+
+        if (sel && sel.row === r && sel.col === c) {
+          const midOv = el.querySelector('.mid-overlay');
+          const extraOv = el.querySelector('.extra-overlay');
+          if (sel.layer === 'extra' && d.extra && extraOv) extraOv.classList.add('selected');
+          else if (sel.layer === 'mid' && d.mid && midOv) midOv.classList.add('selected');
+          else if (sel.layer === 'base' && d.base) el.classList.add('selected');
+        }
+
+        boardEl.appendChild(el);
+      }
+    }
+
+    function onCellClick(row, col, explicitLayer) {
+      if (gameOver) return;
+      const cell = grid[row][col];
+      let tile, layer;
+      if (explicitLayer) {
+        layer = explicitLayer;
+        tile = getTile(cell, layer);
+      } else {
+        if (cell.extra) { tile = cell.extra; layer = 'extra'; }
+        else if (cell.mid) { tile = cell.mid; layer = 'mid'; }
+        else if (cell.base) { tile = cell.base; layer = 'base'; }
+        else return;
+      }
+      if (!tile) return;
+
+      if (!selected) {
+        selected = { row, col, layer };
+        renderBoard(selected);
+        return;
+      }
+
+      if (selected.row === row && selected.col === col && selected.layer === layer) {
+        selected = null;
+        renderBoard();
+        return;
+      }
+
+      const t1 = getTile(grid[selected.row][selected.col], selected.layer);
+      if (!t1 || !tile) { selected = null; renderBoard(); return; }
+
+      if (t1.typeIdx !== tile.typeIdx) {
+        selected = { row, col, layer };
+        renderBoard(selected);
+        showMsg('图案不同');
+        return;
+      }
+
+      let connLayer = selected.layer;
+      if (selected.layer !== layer) connLayer = 'cross';
+
+      const path = findPath(selected.row, selected.col, row, col, connLayer);
+      if (!path) {
+        showMsg('无法连通');
+        selected = { row, col, layer };
+        renderBoard(selected);
+        return;
+      }
+
+      removePair(selected.row, selected.col, row, col, selected.layer, layer, path);
+    }
+
+    function removePair(r1, c1, r2, c2, layer1, layer2, path) {
+      drawLine(path);
+      const tile = getTile(grid[r1][c1], layer1);
+      if (tile) { speakTileName(tile); showMsg(`🔊 ${tile.text} - 消除！`); }
+      setTimeout(() => {
+        if (layer1 === 'extra') grid[r1][c1].extra = null;
+        else if (layer1 === 'mid') grid[r1][c1].mid = null;
+        else grid[r1][c1].base = null;
+
+        if (layer2 === 'extra') grid[r2][c2].extra = null;
+        else if (layer2 === 'mid') grid[r2][c2].mid = null;
+        else grid[r2][c2].base = null;
+
+        clearLine(); score += 10; updateScoreUI(); selected = null; renderBoard();
+        if (countRemaining() === 0) { winGame(); return; }
+        const anyTile = grid.some(row => row.some(c => c.extra || c.mid || c.base));
+        const hasMove = hasValidMove('extra') || hasValidMove('mid') || hasValidMove('base') || hasValidMove('cross');
+        if (anyTile && !hasMove) {
+          showMsg('⏳ 无可用配对，自动洗牌...');
+          setTimeout(shuffleRemaining, 500);
+        }
+      }, 350);
+    }
+
+    function winGame() { gameOver = true; stopTimer(); if (score > bestScore) { bestScore = score; localStorage.setItem('majiangBest', bestScore); updateScoreUI(); } overlayTitle.textContent = '🎉 胜利!'; overlayMsg.textContent = `用时: ${formatTime(seconds)}  得分: ${score}`; overlay.classList.remove('hide'); }
+    function startTimer() { stopTimer(); seconds = 0; timerEl.textContent = '00:00'; timerInterval = setInterval(() => { seconds++; timerEl.textContent = formatTime(seconds); }, 1000); }
+    function stopTimer() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } }
+    function formatTime(s) { const m = Math.floor(s / 60); const sec = s % 60; return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`; }
+    function updateScoreUI() { scoreEl.textContent = score; if (score > bestScore) { bestScore = score; localStorage.setItem('majiangBest', bestScore); } bestScoreEl.textContent = bestScore; }
+    function showMsg(msg) { messageEl.textContent = msg; clearTimeout(messageEl._timeout); messageEl._timeout = setTimeout(() => { messageEl.textContent = ''; }, 2000); }
+    function speakTileName(tile) { if (!('speechSynthesis' in window)) return; const u = new SpeechSynthesisUtterance(tile.text); u.lang = 'zh-CN'; u.rate = 0.9; u.pitch = 1.1; speechSynthesis.cancel(); speechSynthesis.speak(u); }
+
+    function drawLine(path) {
+      const cells = boardEl.querySelectorAll('.cell'); if (!cells.length) return;
+      const f = cells[0], cw = f.offsetWidth, ch = f.offsetHeight, gap = 4;
+      const wr = document.getElementById('boardWrapper'), wrR = wr.getBoundingClientRect();
+      lineCanvas.width = wrR.width; lineCanvas.height = wrR.height;
+      const br = boardEl.getBoundingClientRect(), ox = br.left - wrR.left, oy = br.top - wrR.top;
+      const gc = (r, c) => ({ x: ox + c * (cw + gap) + cw / 2, y: oy + r * (ch + gap) + ch / 2 });
+      ctx.clearRect(0, 0, lineCanvas.width, lineCanvas.height); if (!path || path.length < 2) return;
+      ctx.beginPath(); const s = gc(path[0].row, path[0].col); ctx.moveTo(s.x, s.y);
+      for (let i = 1; i < path.length; i++) { const p = gc(path[i].row, path[i].col); ctx.lineTo(p.x, p.y); }
+      ctx.strokeStyle = '#f4a261'; ctx.lineWidth = 4; ctx.shadowColor = '#f4a261'; ctx.shadowBlur = 12; ctx.stroke(); ctx.shadowBlur = 0;
+      ctx.fillStyle = '#f4a261'; for (let i = 0; i < path.length; i++) { const p = gc(path[i].row, path[i].col); ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI * 2); ctx.fill(); }
+    }
+    function clearLine() { if (lineCanvas) ctx.clearRect(0, 0, lineCanvas.width, lineCanvas.height); }
+
+    function resetGame() { stopTimer(); gameOver = false; selected = null; initGrid(currentLevel); score = 0; updateScoreUI(); overlay.classList.add('hide'); renderBoard(); showMsg(''); startTimer(); }
+    let shuffleDb = false;
+    function onShuffle() { if (shuffleDb || gameOver) return; shuffleDb = true; setTimeout(() => { shuffleDb = false; }, 1000); shuffleRemaining(); }
+    function init() {
+      bestScoreEl.textContent = bestScore;
+      resetGame();
+      newGameBtn.addEventListener('click', resetGame);
+      shuffleBtn.addEventListener('click', onShuffle);
+      overlayBtn.addEventListener('click', resetGame);
+
+      document.querySelectorAll('.level-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const lvl = parseInt(btn.dataset.level);
+          if (lvl === currentLevel) return;
+          currentLevel = lvl;
+          document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          resetGame();
+        });
+      });
+    }
+    init();
+  })();
+</script>
+</body>
+</html>
