@@ -1,0 +1,265 @@
+export const DEFAULT_LANGUAGE = "zh";
+export const SUPPORTED_LANGUAGES = ["zh", "en", "fr"];
+export const LANGUAGE_STORAGE_KEY = "match2-language";
+
+const translations = {
+  zh: {
+    "language.label": "语言",
+    "language.zh": "中文",
+    "language.en": "English",
+    "language.fr": "Francais",
+    "app.eyebrow": "ANIMAL MATCH ONLINE",
+    "app.title": "双人在线连连看",
+    "status.preview": "本地预览模式",
+    "status.connecting": "连接中...",
+    "status.connected": "已连接服务器",
+    "status.disconnected": "连接已断开，请刷新页面重试",
+    "home.nicknameLabel": "昵称",
+    "home.nicknamePlaceholder": "输入你的昵称",
+    "home.create": "开房",
+    "home.roomCodeLabel": "房号",
+    "home.roomCodePlaceholder": "四位数",
+    "home.join": "加入房间",
+    "home.tip": "牌堆按层向中心收拢，越上层覆盖范围越小，成功配对后会从最上层开始消除。",
+    "lobby.title": "大厅",
+    "lobby.roomCode": "房号 {{code}}",
+    "lobby.host": "房主",
+    "lobby.player": "玩家",
+    "lobby.waiting": "等待加入",
+    "lobby.start": "开始游戏",
+    "game.roomCodeMoves": "房号 {{code}} 可消除：{{count}}",
+    "game.reshuffleCountdown": "洗牌倒计时 {{count}}",
+    "game.boardLoading": "棋盘数据加载中，请稍候；如果一直不出现，请刷新页面重试。",
+    "game.legendSize": "棋盘 {{rows}} x {{cols}}",
+    "game.legendStack": "三层金字塔式牌堆",
+    "game.legendScore": "每次成功消除 +100 分",
+    "game.legendDebug": "调试线：绿线可通，红线不可通",
+    "preview.regenerate": "重新生成棋盘",
+    "preview.ruleTest": "层级规则测试局面",
+    "results.title": "本局结算",
+    "results.points": "{{score}} 分",
+    "results.backToLobby": "返回大厅",
+    "preview.randomBoard": "本地随机棋盘预览模式",
+    "preview.firstSelected": "已选中第一张牌",
+    "preview.selectionCanceled": "已取消选择",
+    "preview.matchSuccess": "预览模式：本次连线判定成功",
+    "preview.ruleMessage": "规则测试：第 3 层两张🐱之间只有下层牌，应该允许连通，且最多转两次弯",
+    "server.waitingForPlayer": "等待另一位玩家加入...",
+    "server.hostCanStart": "房主可以开始游戏",
+    "server.playersReady": "玩家已到齐，等待房主开始",
+    "server.noMovesReshuffle": "当前无可用配对，{{count}} 秒后自动洗牌",
+    "server.boardReshuffled": "牌面已刷新，继续抢连",
+    "server.gameStarted": "开局成功，开始抢连吧",
+    "server.gameFinished": "本局结束",
+    "server.selectionCanceled": "已取消选择",
+    "server.firstSelected": "已选中第一张牌",
+    "server.matchScored": "{{nickname}} 成功消除，+{{score}}",
+    "server.playerLeft": "有玩家离开，房间已回到大厅",
+    "error.enterNickname": "请输入昵称",
+    "error.enterNicknameAndRoomCode": "请输入昵称和四位房号",
+    "error.roomNotFound": "房间不存在",
+    "error.roomFull": "房间已满",
+    "error.gameAlreadyStarted": "游戏已开始，暂不允许加入",
+    "error.notInRoom": "你当前不在房间中",
+    "error.onlyHostCanStart": "只有房主可以开始",
+    "error.needTwoPlayers": "需要 2 名玩家才能开始",
+    "error.notGamePhase": "当前不在游戏阶段",
+    "error.waitForReshuffle": "正在准备洗牌，请稍候",
+    "error.noSelectableTile": "该位置没有可选牌",
+    "error.unknownAction": "未知操作",
+    "error.messageFailed": "消息处理失败",
+    "error.previewOffline": "预览模式不连接服务器",
+    "error.serverNotReady": "服务器尚未连接完成",
+    "error.selectTwoTiles": "请选择两张牌",
+    "error.tileMissing": "目标牌不存在",
+    "error.sameTile": "不能选择同一张牌",
+    "error.patternMismatch": "图案不一致",
+    "error.noRoute": "当前无法连通"
+  },
+  en: {
+    "language.label": "Language",
+    "language.zh": "中文",
+    "language.en": "English",
+    "language.fr": "Francais",
+    "app.eyebrow": "ANIMAL MATCH ONLINE",
+    "app.title": "Two-Player Online Match",
+    "status.preview": "Local preview mode",
+    "status.connecting": "Connecting...",
+    "status.connected": "Connected to server",
+    "status.disconnected": "Connection lost. Refresh the page to try again.",
+    "home.nicknameLabel": "Nickname",
+    "home.nicknamePlaceholder": "Enter your nickname",
+    "home.create": "Create Room",
+    "home.roomCodeLabel": "Room Code",
+    "home.roomCodePlaceholder": "4 digits",
+    "home.join": "Join Room",
+    "home.tip": "Stacks taper toward the center. Upper layers cover less area, and matches always remove the top layer first.",
+    "lobby.title": "Lobby",
+    "lobby.roomCode": "Room {{code}}",
+    "lobby.host": "Host",
+    "lobby.player": "Player",
+    "lobby.waiting": "Waiting for player",
+    "lobby.start": "Start Game",
+    "game.roomCodeMoves": "Room {{code}} Removable: {{count}}",
+    "game.reshuffleCountdown": "Reshuffle in {{count}}",
+    "game.boardLoading": "Loading board data. Refresh the page if it does not appear.",
+    "game.legendSize": "Board {{rows}} x {{cols}}",
+    "game.legendStack": "Three-layer pyramid stacks",
+    "game.legendScore": "+100 points per match",
+    "game.legendDebug": "Debug lines: green = valid, red = blocked",
+    "preview.regenerate": "Regenerate Board",
+    "preview.ruleTest": "Layer Rule Test",
+    "results.title": "Results",
+    "results.points": "{{score}} pts",
+    "results.backToLobby": "Back to Lobby",
+    "preview.randomBoard": "Local random board preview",
+    "preview.firstSelected": "First tile selected",
+    "preview.selectionCanceled": "Selection cancelled",
+    "preview.matchSuccess": "Preview mode: this match is valid",
+    "preview.ruleMessage": "Rule test: the two level-3 🐱 tiles should connect because only lower-layer tiles lie between them, with at most two turns.",
+    "server.waitingForPlayer": "Waiting for another player...",
+    "server.hostCanStart": "The host can start the game",
+    "server.playersReady": "Both players are ready. Waiting for the host to start",
+    "server.noMovesReshuffle": "No removable pairs left. Auto reshuffle in {{count}} seconds",
+    "server.boardReshuffled": "Board refreshed. Keep matching",
+    "server.gameStarted": "Game started. Go for the pairs",
+    "server.gameFinished": "Round complete",
+    "server.selectionCanceled": "Selection cancelled",
+    "server.firstSelected": "First tile selected",
+    "server.matchScored": "{{nickname}} matched a pair, +{{score}}",
+    "server.playerLeft": "A player left. The room returned to the lobby",
+    "error.enterNickname": "Please enter a nickname",
+    "error.enterNicknameAndRoomCode": "Please enter a nickname and a 4-digit room code",
+    "error.roomNotFound": "Room not found",
+    "error.roomFull": "Room is full",
+    "error.gameAlreadyStarted": "The game has already started. Joining is disabled",
+    "error.notInRoom": "You are not currently in a room",
+    "error.onlyHostCanStart": "Only the host can start the game",
+    "error.needTwoPlayers": "Two players are required to start",
+    "error.notGamePhase": "The game is not currently active",
+    "error.waitForReshuffle": "A reshuffle is being prepared. Please wait",
+    "error.noSelectableTile": "There is no selectable tile here",
+    "error.unknownAction": "Unknown action",
+    "error.messageFailed": "Failed to process message",
+    "error.previewOffline": "Preview mode does not connect to the server",
+    "error.serverNotReady": "The server connection is not ready yet",
+    "error.selectTwoTiles": "Please select two tiles",
+    "error.tileMissing": "One of the tiles no longer exists",
+    "error.sameTile": "You cannot select the same tile twice",
+    "error.patternMismatch": "The icons do not match",
+    "error.noRoute": "No valid route is available"
+  },
+  fr: {
+    "language.label": "Langue",
+    "language.zh": "中文",
+    "language.en": "English",
+    "language.fr": "Francais",
+    "app.eyebrow": "ANIMAL MATCH ONLINE",
+    "app.title": "Jeu de Paires En Ligne a Deux",
+    "status.preview": "Mode d'aperçu local",
+    "status.connecting": "Connexion...",
+    "status.connected": "Connecte au serveur",
+    "status.disconnected": "Connexion perdue. Rechargez la page pour reessayer.",
+    "home.nicknameLabel": "Pseudo",
+    "home.nicknamePlaceholder": "Entrez votre pseudo",
+    "home.create": "Creer une salle",
+    "home.roomCodeLabel": "Code de salle",
+    "home.roomCodePlaceholder": "4 chiffres",
+    "home.join": "Rejoindre",
+    "home.tip": "Les piles se resserrent vers le centre. Les couches superieures couvrent moins d'espace et les paires retirent toujours la couche du dessus.",
+    "lobby.title": "Salon",
+    "lobby.roomCode": "Salle {{code}}",
+    "lobby.host": "Hote",
+    "lobby.player": "Joueur",
+    "lobby.waiting": "En attente d'un joueur",
+    "lobby.start": "Demarrer",
+    "game.roomCodeMoves": "Salle {{code}} Paires restantes: {{count}}",
+    "game.reshuffleCountdown": "Melange dans {{count}}",
+    "game.boardLoading": "Chargement du plateau. Rechargez la page si rien n'apparait.",
+    "game.legendSize": "Plateau {{rows}} x {{cols}}",
+    "game.legendStack": "Piles pyramidales sur trois couches",
+    "game.legendScore": "+100 points par paire",
+    "game.legendDebug": "Lignes debug : vert = valide, rouge = bloque",
+    "preview.regenerate": "Regenerer le plateau",
+    "preview.ruleTest": "Test des couches",
+    "results.title": "Resultats",
+    "results.points": "{{score}} pts",
+    "results.backToLobby": "Retour au salon",
+    "preview.randomBoard": "Apercu local d'un plateau aleatoire",
+    "preview.firstSelected": "Premiere tuile selectionnee",
+    "preview.selectionCanceled": "Selection annulee",
+    "preview.matchSuccess": "Mode apercu : cette paire est valide",
+    "preview.ruleMessage": "Test de regle : les deux 🐱 du niveau 3 doivent se relier car seules des tuiles de couche inferieure se trouvent entre elles, avec au plus deux virages.",
+    "server.waitingForPlayer": "En attente d'un autre joueur...",
+    "server.hostCanStart": "L'hote peut lancer la partie",
+    "server.playersReady": "Les deux joueurs sont prets. En attente du lancement par l'hote",
+    "server.noMovesReshuffle": "Aucune paire disponible. Melange automatique dans {{count}} secondes",
+    "server.boardReshuffled": "Plateau rafraichi. Continuez",
+    "server.gameStarted": "Partie lancee. A vous de relier les paires",
+    "server.gameFinished": "Manche terminee",
+    "server.selectionCanceled": "Selection annulee",
+    "server.firstSelected": "Premiere tuile selectionnee",
+    "server.matchScored": "{{nickname}} a retire une paire, +{{score}}",
+    "server.playerLeft": "Un joueur est parti. La salle est revenue au salon",
+    "error.enterNickname": "Veuillez entrer un pseudo",
+    "error.enterNicknameAndRoomCode": "Veuillez entrer un pseudo et un code de salle a 4 chiffres",
+    "error.roomNotFound": "Salle introuvable",
+    "error.roomFull": "La salle est complete",
+    "error.gameAlreadyStarted": "La partie a deja commence. Impossible de rejoindre",
+    "error.notInRoom": "Vous n'etes actuellement dans aucune salle",
+    "error.onlyHostCanStart": "Seul l'hote peut lancer la partie",
+    "error.needTwoPlayers": "Deux joueurs sont necessaires pour commencer",
+    "error.notGamePhase": "La partie n'est pas en cours",
+    "error.waitForReshuffle": "Un melange est en preparation. Merci de patienter",
+    "error.noSelectableTile": "Aucune tuile selectable ici",
+    "error.unknownAction": "Action inconnue",
+    "error.messageFailed": "Echec du traitement du message",
+    "error.previewOffline": "Le mode apercu ne se connecte pas au serveur",
+    "error.serverNotReady": "La connexion au serveur n'est pas encore prete",
+    "error.selectTwoTiles": "Veuillez selectionner deux tuiles",
+    "error.tileMissing": "L'une des tuiles n'existe plus",
+    "error.sameTile": "Vous ne pouvez pas selectionner deux fois la meme tuile",
+    "error.patternMismatch": "Les icones ne correspondent pas",
+    "error.noRoute": "Aucun chemin valide disponible"
+  }
+};
+
+export function normalizeLanguage(language) {
+  return SUPPORTED_LANGUAGES.includes(language) ? language : DEFAULT_LANGUAGE;
+}
+
+export function createMessage(key, params = {}) {
+  return { key, params };
+}
+
+export function translate(language, key, params = {}) {
+  const activeLanguage = normalizeLanguage(language);
+  const dictionary = translations[activeLanguage] ?? translations[DEFAULT_LANGUAGE];
+  const template = dictionary[key] ?? translations[DEFAULT_LANGUAGE][key] ?? key;
+  return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_match, token) => String(params[token] ?? ""));
+}
+
+export function resolveText(language, value) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value.key) {
+    return translate(language, value.key, value.params ?? {});
+  }
+  return String(value);
+}
+
+export function loadPreferredLanguage() {
+  try {
+    return normalizeLanguage(window.localStorage.getItem(LANGUAGE_STORAGE_KEY) ?? DEFAULT_LANGUAGE);
+  } catch {
+    return DEFAULT_LANGUAGE;
+  }
+}
+
+export function savePreferredLanguage(language) {
+  try {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, normalizeLanguage(language));
+  } catch {
+    // Ignore storage failures in private or restricted contexts.
+  }
+}

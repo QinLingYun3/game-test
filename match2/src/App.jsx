@@ -5,31 +5,40 @@ import {
   SCORE_PER_MATCH,
   countRemainingTiles,
   createBoard,
+  getTopTile,
   getCellDepth,
   getRouteDebugPathsAcrossLayers,
   isBoardCleared,
   isValidSelection,
   removePair
 } from "@shared/game.js";
+import {
+  SUPPORTED_LANGUAGES,
+  createMessage,
+  loadPreferredLanguage,
+  resolveText,
+  savePreferredLanguage,
+  translate
+} from "./i18n.js";
 
 function isBoardPreviewMode() {
   return new URLSearchParams(window.location.search).get("preview");
 }
 
-function createPreviewPlayers(hostId) {
+function createPreviewPlayers(hostId, language) {
   return [
-    { id: hostId, nickname: "预览玩家", score: 0 },
-    { id: "preview-opponent", nickname: "对手占位", score: 0 }
+    { id: hostId, nickname: translate(language, "lobby.host"), score: 0 },
+    { id: "preview-opponent", nickname: translate(language, "lobby.player"), score: 0 }
   ];
 }
 
-function createPreviewBaseRoom(board, message) {
+function createPreviewBaseRoom(board, message, language) {
   const hostId = "preview-player";
   return {
     code: "PREVIEW",
     phase: "game",
     hostId,
-    players: createPreviewPlayers(hostId),
+    players: createPreviewPlayers(hostId, language),
     board,
     message,
     lastMatch: null,
@@ -42,8 +51,8 @@ function createPreviewBaseRoom(board, message) {
   };
 }
 
-function createPreviewRoom(seed = Date.now()) {
-  return createPreviewBaseRoom(createBoard(seed), "本地随机棋盘预览模式");
+function createPreviewRoom(language, seed = Date.now()) {
+  return createPreviewBaseRoom(createBoard(seed), createMessage("preview.randomBoard"), language);
 }
 
 function createEmptyBoard() {
@@ -54,7 +63,7 @@ function createTile(id, type, icon) {
   return { id, type, icon };
 }
 
-function createLayerRuleTestRoom() {
+function createLayerRuleTestRoom(language) {
   const board = createEmptyBoard();
 
   board[2][1] = [
@@ -75,10 +84,7 @@ function createLayerRuleTestRoom() {
   board[4][3] = [createTile("lower-b", "cow", "🐮")];
   board[4][4] = [createTile("lower-c", "chick", "🐥")];
 
-  return createPreviewBaseRoom(
-    board,
-    "规则测试：第 3 层两张🐱之间只有下层牌，应该允许连通，且最多转两次弯"
-  );
+  return createPreviewBaseRoom(board, createMessage("preview.ruleMessage"), language);
 }
 
 function createSocketUrl() {
@@ -181,20 +187,31 @@ function App() {
   const previewMode = isBoardPreviewMode();
   const previewRuleMode = previewMode === "rule-test";
   const previewBoardMode = previewMode === "board";
+  const [language, setLanguage] = useState(() => loadPreferredLanguage());
   const socketRef = useRef(null);
   const boardRef = useRef(null);
   const [nickname, setNickname] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [playerId, setPlayerId] = useState(previewMode ? "preview-player" : "");
-  const [room, setRoom] = useState(
-    previewRuleMode ? createLayerRuleTestRoom() : previewBoardMode ? createPreviewRoom() : null
+  const [room, setRoom] = useState(() =>
+    previewRuleMode ? createLayerRuleTestRoom(loadPreferredLanguage()) : previewBoardMode ? createPreviewRoom(loadPreferredLanguage()) : null
   );
-  const [error, setError] = useState("");
-  const [status, setStatus] = useState(previewMode ? "本地预览模式" : "连接中...");
+  const [error, setError] = useState(null);
+  const [status, setStatus] = useState(previewMode ? createMessage("status.preview") : createMessage("status.connecting"));
   const [activePath, setActivePath] = useState(null);
   const [hoverTarget, setHoverTarget] = useState(null);
   const [debugPaths, setDebugPaths] = useState([]);
   const mySelection = room?.you?.selection;
+  const reshuffling = Boolean(room?.reshuffleCountdown);
+
+  useEffect(() => {
+    savePreferredLanguage(language);
+  }, [language]);
+
+  useEffect(() => {
+    if (previewMode || room) return;
+    setStatus(createMessage("status.connecting"));
+  }, [previewMode, room]);
 
   useEffect(() => {
     if (previewMode) return undefined;
@@ -203,7 +220,7 @@ function App() {
     socketRef.current = socket;
 
     socket.addEventListener("open", () => {
-      setStatus("已连接服务器");
+      setStatus(createMessage("status.connected"));
     });
 
     socket.addEventListener("message", (event) => {
@@ -213,7 +230,7 @@ function App() {
       }
       if (message.type === "room_state") {
         setRoom(message.payload);
-        setError("");
+        setError(null);
       }
       if (message.type === "error") {
         setError(message.payload.message);
@@ -221,7 +238,7 @@ function App() {
     });
 
     socket.addEventListener("close", () => {
-      setStatus("连接已断开，请刷新页面重试");
+      setStatus(createMessage("status.disconnected"));
     });
 
     return () => socket.close();
@@ -250,6 +267,13 @@ function App() {
       return;
     }
 
+    const selectedTile = getTopTile(room.board, mySelection.row, mySelection.col);
+    const hoveredTile = getTopTile(room.board, hoverTarget.row, hoverTarget.col);
+    if (!selectedTile || !hoveredTile || selectedTile.type !== hoveredTile.type) {
+      setDebugPaths([]);
+      return;
+    }
+
     const firstDepth = getCellDepth(room.board, mySelection.row, mySelection.col);
     const secondDepth = getCellDepth(room.board, hoverTarget.row, hoverTarget.col);
     const candidates = getRouteDebugPathsAcrossLayers(
@@ -266,14 +290,16 @@ function App() {
   }, [room?.board, room?.phase, mySelection, hoverTarget]);
 
   const ranking = useMemo(() => sortRanking(room?.players ?? []), [room]);
+  const t = (key, params) => translate(language, key, params);
+  const formatMessage = (value) => resolveText(language, value);
 
   function send(type, payload) {
     if (previewMode) {
-      setError("预览模式不连接服务器");
+      setError(createMessage("error.previewOffline"));
       return;
     }
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
-      setError("服务器尚未连接完成");
+      setError(createMessage("error.serverNotReady"));
       return;
     }
     socketRef.current.send(JSON.stringify({ type, payload }));
@@ -291,7 +317,7 @@ function App() {
     setHoverTarget({ row, col });
     if (previewMode) {
       setRoom((currentRoom) => {
-        if (!currentRoom || currentRoom.phase !== "game") return currentRoom;
+        if (!currentRoom || currentRoom.phase !== "game" || currentRoom.reshuffleCountdown) return currentRoom;
 
         const current = currentRoom.you?.selection;
         const nextPosition = { row, col };
@@ -299,7 +325,7 @@ function App() {
         if (!current) {
           return {
             ...currentRoom,
-            message: "已选中第一张牌",
+            message: createMessage("preview.firstSelected"),
             you: { ...currentRoom.you, selection: nextPosition }
           };
         }
@@ -307,7 +333,7 @@ function App() {
         if (current.row === row && current.col === col) {
           return {
             ...currentRoom,
-            message: "已取消选择",
+            message: createMessage("preview.selectionCanceled"),
             you: { ...currentRoom.you, selection: null }
           };
         }
@@ -331,7 +357,7 @@ function App() {
           board: nextBoard,
           players: nextPlayers,
           remainingTiles: countRemainingTiles(nextBoard),
-          message: "预览模式：本次连线判定成功",
+          message: createMessage("preview.matchSuccess"),
           lastMatch: {
             by: playerId,
             pair: [current, nextPosition],
@@ -344,7 +370,7 @@ function App() {
       });
       return;
     }
-    if (room?.phase !== "game") return;
+    if (room?.phase !== "game" || room?.reshuffleCountdown) return;
     send("select_tile", { row, col });
   }
 
@@ -355,19 +381,19 @@ function App() {
 
   function regeneratePreviewBoard() {
     if (!previewBoardMode) return;
-    setRoom(createPreviewRoom());
+    setRoom(createPreviewRoom(language));
     setActivePath(null);
-    setError("");
+    setError(null);
   }
 
   function loadRulePreviewBoard() {
     if (!previewMode) return;
-    setRoom(createLayerRuleTestRoom());
+    setRoom(createLayerRuleTestRoom(language));
     setActivePath(null);
-    setError("");
+    setError(null);
   }
 
-  const canInteract = room?.phase === "game";
+  const canInteract = room?.phase === "game" && !reshuffling;
   const boardRows = Array.isArray(room?.board) ? room.board : [];
   const hasRenderableBoard = boardRows.length > 0;
 
@@ -377,59 +403,69 @@ function App() {
       <main className="app-card">
         <header className="hero">
           <div>
-            <p className="eyebrow">ANIMAL MATCH ONLINE</p>
-            <h1>双人在线连连看</h1>
+            <p className="eyebrow">{t("app.eyebrow")}</p>
+            <h1>{t("app.title")}</h1>
           </div>
-          <p className="status">{status}</p>
+          <p className="status">{formatMessage(status)}</p>
         </header>
 
         {!room && (
           <section className="panel home-panel">
             <label className="field">
-              <span>昵称</span>
+              <span>{t("language.label")}</span>
+              <select value={language} onChange={(event) => setLanguage(event.target.value)}>
+                {SUPPORTED_LANGUAGES.map((option) => (
+                  <option key={option} value={option}>
+                    {t(`language.${option}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>{t("home.nicknameLabel")}</span>
               <input
                 value={nickname}
                 onChange={(event) => setNickname(event.target.value)}
                 maxLength={12}
-                placeholder="输入你的昵称"
+                placeholder={t("home.nicknamePlaceholder")}
               />
             </label>
             <div className="home-actions">
               <button className="primary-btn" onClick={onCreateRoom}>
-                开房
+                {t("home.create")}
               </button>
               <label className="field inline-field">
-                <span>房号</span>
+                <span>{t("home.roomCodeLabel")}</span>
                 <input
                   value={joinCode}
                   onChange={(event) => setJoinCode(event.target.value.replace(/\D/g, "").slice(0, 4))}
-                  placeholder="四位数"
+                  placeholder={t("home.roomCodePlaceholder")}
                 />
               </label>
               <button className="secondary-btn" onClick={onJoinRoom}>
-                加入房间
+                {t("home.join")}
               </button>
             </div>
-            <p className="tip">牌堆按层向中心收拢，越上层覆盖范围越小，成功配对后会从最上层开始消除。</p>
+            <p className="tip">{t("home.tip")}</p>
           </section>
         )}
 
         {room && room.phase === "lobby" && (
           <section className="panel lobby-panel">
-            <div className="room-badge">房号 {room.code}</div>
-            <h2>大厅</h2>
-            <p className="room-message">{room.message}</p>
+            <div className="room-badge">{t("lobby.roomCode", { code: room.code })}</div>
+            <h2>{t("lobby.title")}</h2>
+            <p className="room-message">{formatMessage(room.message)}</p>
             <div className="player-list">
               {room.players.map((player) => (
                 <article className="player-chip" key={player.id}>
                   <strong>{player.nickname}</strong>
-                  <span>{player.id === room.hostId ? "房主" : "玩家"}</span>
+                  <span>{player.id === room.hostId ? t("lobby.host") : t("lobby.player")}</span>
                 </article>
               ))}
-              {room.players.length < 2 && <article className="player-chip empty">等待加入</article>}
+              {room.players.length < 2 && <article className="player-chip empty">{t("lobby.waiting")}</article>}
             </div>
             <button className="primary-btn" disabled={!room.canStart} onClick={() => send("start_game")}>
-              开始游戏
+              {t("lobby.start")}
             </button>
           </section>
         )}
@@ -438,8 +474,9 @@ function App() {
           <section className="panel game-panel">
             <div className="topbar">
               <div>
-                <p className="room-badge">房号 {room.code}</p>
-                <p className="room-message">{room.message}</p>
+                <p className="room-badge">{t("game.roomCodeMoves", { code: room.code, count: room.removablePairs ?? 0 })}</p>
+                <p className="room-message">{formatMessage(room.message)}</p>
+                {reshuffling && <p className="room-message">{t("game.reshuffleCountdown", { count: room.reshuffleCountdown })}</p>}
               </div>
               <div className="scoreboard">
                 {ranking.map((player) => (
@@ -535,25 +572,25 @@ function App() {
                   )}
                 </div>
               ) : (
-                <p className="board-status">棋盘数据加载中，请稍候；如果一直不出现，请刷新页面重试。</p>
+                <p className="board-status">{t("game.boardLoading")}</p>
               )}
             </div>
 
             <div className="legend">
-              <span>棋盘 {ROWS} x {COLS}</span>
-              <span>三层金字塔式牌堆</span>
-              <span>每次成功消除 +100 分</span>
-              <span>调试线：绿线可通，红线不可通</span>
+              <span>{t("game.legendSize", { rows: ROWS, cols: COLS })}</span>
+              <span>{t("game.legendStack")}</span>
+              <span>{t("game.legendScore")}</span>
+              <span>{t("game.legendDebug")}</span>
             </div>
             {previewMode && (
               <div className="preview-actions">
                 {previewBoardMode && (
                   <button className="secondary-btn" onClick={regeneratePreviewBoard}>
-                    重新生成棋盘
+                    {t("preview.regenerate")}
                   </button>
                 )}
                 <button className="secondary-btn" onClick={loadRulePreviewBoard}>
-                  层级规则测试局面
+                  {t("preview.ruleTest")}
                 </button>
               </div>
             )}
@@ -562,25 +599,25 @@ function App() {
 
         {room && room.phase === "results" && (
           <section className="panel result-panel">
-            <div className="room-badge">房号 {room.code}</div>
-            <h2>本局结算</h2>
-            <p className="room-message">{room.message}</p>
+            <div className="room-badge">{t("lobby.roomCode", { code: room.code })}</div>
+            <h2>{t("results.title")}</h2>
+            <p className="room-message">{formatMessage(room.message)}</p>
             <div className="rank-list">
               {sortRanking(room.players).map((player, index) => (
                 <article className={`rank-card${player.id === playerId ? " mine" : ""}`} key={player.id}>
                   <span>#{index + 1}</span>
                   <strong>{player.nickname}</strong>
-                  <b>{player.score} 分</b>
+                  <b>{t("results.points", { score: player.score })}</b>
                 </article>
               ))}
             </div>
             <button className="primary-btn" onClick={() => send("replay")}>
-              返回大厅
+              {t("results.backToLobby")}
             </button>
           </section>
         )}
 
-        {error && <p className="error-banner">{error}</p>}
+        {error && <p className="error-banner">{formatMessage(error)}</p>}
       </main>
     </div>
   );

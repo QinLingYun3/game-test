@@ -14,6 +14,7 @@ export default defineConfig({
     }
   },
   server: {
+    host: "0.0.0.0",
     port: 5173,
     fs: {
       allow: [rootDir, sharedDir]
@@ -25,5 +26,9 @@ export default defineConfig({
         ws: true
       }
     }
+  },
+  preview: {
+    host: "0.0.0.0",
+    port: 4173
   }
 });

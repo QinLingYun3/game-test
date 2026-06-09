@@ -2,6 +2,10 @@ export const ROWS = 6;
 export const COLS = 8;
 export const LAYERS = 3;
 export const SCORE_PER_MATCH = 100;
+
+function createMessage(key, params = {}) {
+  return { key, params };
+}
 const LAYER_INSETS = [0, 1, 2];
 
 const TILE_TYPES = [
@@ -153,7 +157,9 @@ function buildBlockedSurface(board, blockedLayers) {
     row.map((cell) => {
       if (!Array.isArray(cell) || cell.length === 0) return null;
       for (const layerDepth of blockedLayers) {
-        if (cell.length >= layerDepth) return cell[layerDepth - 1];
+        if (cell.length >= layerDepth) {
+          return cell[layerDepth - 1];
+        }
       }
       return null;
     })
@@ -343,6 +349,10 @@ export function findPath(board, start, end, blockedLayers = [1]) {
 }
 
 export function hasAnyMoves(board) {
+  return countRemovablePairs(board) > 0;
+}
+
+export function countRemovablePairs(board) {
   const positions = [];
   for (let row = 0; row < ROWS; row += 1) {
     for (let col = 0; col < COLS; col += 1) {
@@ -358,15 +368,18 @@ export function hasAnyMoves(board) {
     }
   }
 
+  let pairCount = 0;
   for (let i = 0; i < positions.length; i += 1) {
     for (let j = i + 1; j < positions.length; j += 1) {
       if (positions[i].type !== positions[j].type) continue;
       const blockedLayers = normalizeBlockedLayers(positions[i].depth, positions[j].depth);
-      if (findPath(board, positions[i], positions[j], blockedLayers)) return true;
+      if (findPath(board, positions[i], positions[j], blockedLayers)) {
+        pairCount += 1;
+      }
     }
   }
 
-  return false;
+  return pairCount;
 }
 
 export function countRemainingTiles(board) {
@@ -404,22 +417,22 @@ export function reshuffleBoard(board, seed = Date.now()) {
 }
 
 export function isValidSelection(board, first, second) {
-  if (!first || !second) return { ok: false, reason: "请选择两张牌" };
+  if (!first || !second) return { ok: false, reason: createMessage("error.selectTwoTiles") };
   const firstTile = getTopTile(board, first.row, first.col);
   const secondTile = getTopTile(board, second.row, second.col);
   const firstDepth = getCellDepth(board, first.row, first.col);
   const secondDepth = getCellDepth(board, second.row, second.col);
 
-  if (!firstTile || !secondTile) return { ok: false, reason: "目标牌不存在" };
+  if (!firstTile || !secondTile) return { ok: false, reason: createMessage("error.tileMissing") };
   if (first.row === second.row && first.col === second.col) {
-    return { ok: false, reason: "不能选择同一张牌" };
+    return { ok: false, reason: createMessage("error.sameTile") };
   }
-  if (firstTile.type !== secondTile.type) return { ok: false, reason: "图案不一致" };
+  if (firstTile.type !== secondTile.type) return { ok: false, reason: createMessage("error.patternMismatch") };
 
   const blockedLayers = normalizeBlockedLayers(firstDepth, secondDepth);
   const path = findPath(board, first, second, blockedLayers);
 
-  if (!path) return { ok: false, reason: "当前无法连通" };
+  if (!path) return { ok: false, reason: createMessage("error.noRoute") };
 
   return { ok: true, path, tile: firstTile };
 }

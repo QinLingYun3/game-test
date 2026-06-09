@@ -16,7 +16,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -117,13 +118,28 @@ button {
   min-width: 160px;
 }
 
-.field input {
+.field input,
+.field select {
   width: 100%;
   padding: 14px 16px;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
+}
+
+.field select {
+  appearance: none;
+  background:
+    linear-gradient(45deg, transparent 50%, rgba(255, 211, 107, 0.9) 50%) calc(100% - 22px) calc(50% - 3px) / 8px 8px no-repeat,
+    linear-gradient(135deg, rgba(255, 211, 107, 0.9) 50%, transparent 50%) calc(100% - 16px) calc(50% - 3px) / 8px 8px no-repeat,
+    rgba(255, 255, 255, 0.06);
+  padding-right: 42px;
+}
+
+.field select option {
+  color: #142016;
+  background: #f7edc8;
 }
 
 .home-actions,

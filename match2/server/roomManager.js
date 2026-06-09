@@ -1,4 +1,5 @@
 import {
+  countRemovablePairs,
   SCORE_PER_MATCH,
   countRemainingTiles,
   createBoard,
@@ -12,6 +13,19 @@ import {
 
 const rooms = new Map();
 const socketToRoom = new Map();
+const reshuffleIntervals = new Map();
+
+function createMessage(key, params = {}) {
+  return { key, params };
+}
+
+function clearReshuffleCountdown(roomCode) {
+  const intervalId = reshuffleIntervals.get(roomCode);
+  if (intervalId) {
+    clearInterval(intervalId);
+    reshuffleIntervals.delete(roomCode);
+  }
+}
 
 function makeRoomCode() {
   let code = "";
@@ -45,6 +59,8 @@ function serializeRoom(room, playerId) {
     board: room.board,
     message: room.message,
     lastMatch: room.lastMatch,
+    reshuffleCountdown: room.reshuffleCountdown ?? null,
+    removablePairs: room.board ? countRemovablePairs(room.board) : 0,
     remainingTiles: room.board ? countRemainingTiles(room.board) : 0,
     canStart: room.players.length === 2 && room.hostId === playerId && room.phase === "lobby",
     you: {
@@ -68,12 +84,55 @@ function broadcastRoom(room, sockets) {
 }
 
 function enterLobby(room) {
+  clearReshuffleCountdown(room.code);
   room.phase = "lobby";
   room.board = null;
   room.selections = new Map();
   room.lastMatch = null;
-  room.message = room.players.length < 2 ? "等待另一位玩家加入..." : "房主可以开始游戏";
+  room.reshuffleCountdown = null;
+  room.message = room.players.length < 2 ? createMessage("server.waitingForPlayer") : createMessage("server.hostCanStart");
   room.players = resetScores(room.players);
+}
+
+function scheduleDeadlockReshuffle(room, sockets) {
+  if (reshuffleIntervals.has(room.code)) return;
+
+  room.selections = new Map();
+  room.reshuffleCountdown = 5;
+  room.message = createMessage("server.noMovesReshuffle", { count: 5 });
+  broadcastRoom(room, sockets);
+
+  const intervalId = setInterval(() => {
+    const liveRoom = rooms.get(room.code);
+    if (!liveRoom) {
+      clearReshuffleCountdown(room.code);
+      return;
+    }
+
+    if (liveRoom.phase !== "game") {
+      liveRoom.reshuffleCountdown = null;
+      clearReshuffleCountdown(room.code);
+      broadcastRoom(liveRoom, sockets);
+      return;
+    }
+
+    liveRoom.reshuffleCountdown -= 1;
+
+    if (liveRoom.reshuffleCountdown > 0) {
+      liveRoom.message = createMessage("server.noMovesReshuffle", { count: liveRoom.reshuffleCountdown });
+      broadcastRoom(liveRoom, sockets);
+      return;
+    }
+
+    liveRoom.board = reshuffleBoard(liveRoom.board);
+    liveRoom.reshuffleCountdown = null;
+    liveRoom.lastMatch = null;
+    liveRoom.message = createMessage("server.boardReshuffled");
+    clearReshuffleCountdown(room.code);
+    broadcastRoom(liveRoom, sockets);
+  }, 1000);
+
+  reshuffleIntervals.set(room.code, intervalId);
 }
 
 export function createRoom({ socketId, nickname }) {
@@ -86,7 +145,7 @@ export function createRoom({ socketId, nickname }) {
     board: null,
     selections: new Map(),
     lastMatch: null,
-    message: "等待另一位玩家加入..."
+    message: createMessage("server.waitingForPlayer")
   };
 
   rooms.set(code, room);
@@ -96,12 +155,12 @@ export function createRoom({ socketId, nickname }) {
 
 export function joinRoom({ socketId, nickname, code }) {
   const room = rooms.get(code);
-  if (!room) return { error: "房间不存在" };
-  if (room.players.length >= 2) return { error: "房间已满" };
-  if (room.phase !== "lobby") return { error: "游戏已开始，暂不允许加入" };
+  if (!room) return { error: createMessage("error.roomNotFound") };
+  if (room.players.length >= 2) return { error: createMessage("error.roomFull") };
+  if (room.phase !== "lobby") return { error: createMessage("error.gameAlreadyStarted") };
 
   room.players.push(createPlayer(socketId, nickname));
-  room.message = "玩家已到齐，等待房主开始";
+  room.message = createMessage("server.playersReady");
   socketToRoom.set(socketId, code);
   return { room };
 }
@@ -113,42 +172,47 @@ export function getRoomBySocket(socketId) {
 
 export function startGame(socketId) {
   const room = getRoomBySocket(socketId);
-  if (!room) return { error: "你当前不在房间中" };
-  if (room.hostId !== socketId) return { error: "只有房主可以开始" };
-  if (room.players.length < 2) return { error: "需要 2 名玩家才能开始" };
+  if (!room) return { error: createMessage("error.notInRoom") };
+  if (room.hostId !== socketId) return { error: createMessage("error.onlyHostCanStart") };
+  if (room.players.length < 2) return { error: createMessage("error.needTwoPlayers") };
 
+  clearReshuffleCountdown(room.code);
   room.phase = "game";
   room.players = resetScores(room.players);
   room.selections = new Map();
   room.lastMatch = null;
+  room.reshuffleCountdown = null;
   room.board = createBoard();
-  room.message = "开局成功，开始抢连吧";
+  room.message = createMessage("server.gameStarted");
   return { room };
 }
 
 function finishGame(room) {
+  clearReshuffleCountdown(room.code);
   room.phase = "results";
   room.selections = new Map();
-  room.message = "本局结束";
+  room.reshuffleCountdown = null;
+  room.message = createMessage("server.gameFinished");
 }
 
-export function handleSelection(socketId, position) {
+export function handleSelection(socketId, position, sockets) {
   const room = getRoomBySocket(socketId);
-  if (!room) return { error: "房间不存在" };
-  if (room.phase !== "game") return { error: "当前不在游戏阶段" };
+  if (!room) return { error: createMessage("error.roomNotFound") };
+  if (room.phase !== "game") return { error: createMessage("error.notGamePhase") };
+  if (room.reshuffleCountdown) return { error: createMessage("error.waitForReshuffle") };
 
-  if (!isPositionSelectable(room.board, position)) return { error: "该位置没有可选牌" };
+  if (!isPositionSelectable(room.board, position)) return { error: createMessage("error.noSelectableTile") };
 
   const current = room.selections.get(socketId);
   if (current && current.row === position.row && current.col === position.col) {
     room.selections.delete(socketId);
-    room.message = "已取消选择";
+    room.message = createMessage("server.selectionCanceled");
     return { room };
   }
 
   if (!current) {
     room.selections.set(socketId, position);
-    room.message = "已选中第一张牌";
+    room.message = createMessage("server.firstSelected");
     return { room };
   }
 
@@ -170,7 +234,10 @@ export function handleSelection(socketId, position) {
   room.players = room.players.map((player) =>
     player.id === socketId ? { ...player, score: player.score + SCORE_PER_MATCH } : player
   );
-  room.message = `${room.players.find((player) => player.id === socketId)?.nickname} 成功消除，+${SCORE_PER_MATCH}`;
+  room.message = createMessage("server.matchScored", {
+    nickname: room.players.find((player) => player.id === socketId)?.nickname ?? "",
+    score: SCORE_PER_MATCH
+  });
 
   if (isBoardCleared(room.board) || countRemainingTiles(room.board) === 0) {
     finishGame(room);
@@ -178,8 +245,7 @@ export function handleSelection(socketId, position) {
   }
 
   if (!hasAnyMoves(room.board)) {
-    room.board = reshuffleBoard(room.board);
-    room.message = "当前无可用配对，棋盘已自动洗牌";
+    scheduleDeadlockReshuffle(room, sockets);
   }
 
   return { room };
@@ -190,6 +256,7 @@ export function leaveRoom(socketId) {
   socketToRoom.delete(socketId);
   if (!room) return null;
 
+  clearReshuffleCountdown(room.code);
   room.players = room.players.filter((player) => player.id !== socketId);
   room.selections.delete(socketId);
 
@@ -203,13 +270,13 @@ export function leaveRoom(socketId) {
   }
 
   enterLobby(room);
-  room.message = "有玩家离开，房间已回到大厅";
+  room.message = createMessage("server.playerLeft");
   return room;
 }
 
 export function replay(socketId) {
   const room = getRoomBySocket(socketId);
-  if (!room) return { error: "房间不存在" };
+  if (!room) return { error: createMessage("error.roomNotFound") };
   enterLobby(room);
   return { room };
 }

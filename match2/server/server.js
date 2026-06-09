@@ -24,6 +24,10 @@ const sockets = new Map();
 const clientDir = path.join(rootDir, "dist");
 const isProduction = process.env.NODE_ENV === "production";
 
+function createMessage(key, params = {}) {
+  return { key, params };
+}
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
@@ -59,7 +63,7 @@ wss.on("connection", (socket) => {
 
       if (type === "create_room") {
         const nickname = normalizeNickname(payload?.nickname);
-        if (!nickname) return send(socket, "error", { message: "请输入昵称" });
+        if (!nickname) return send(socket, "error", { message: createMessage("error.enterNickname") });
         const previousRoom = leaveRoom(socketId);
         broadcastAfterAction(previousRoom, sockets);
         const room = createRoom({ socketId, nickname });
@@ -70,7 +74,7 @@ wss.on("connection", (socket) => {
         const nickname = normalizeNickname(payload?.nickname);
         const code = normalizeCode(payload?.code);
         if (!nickname || code.length !== 4) {
-          return send(socket, "error", { message: "请输入昵称和四位房号" });
+          return send(socket, "error", { message: createMessage("error.enterNicknameAndRoomCode") });
         }
         const previousRoom = leaveRoom(socketId);
         broadcastAfterAction(previousRoom, sockets);
@@ -86,7 +90,7 @@ wss.on("connection", (socket) => {
       }
 
       if (type === "select_tile") {
-        const result = handleSelection(socketId, payload);
+        const result = handleSelection(socketId, payload, sockets);
         if (result.error) return send(socket, "error", { message: result.error });
         return broadcastAfterAction(result.room, sockets);
       }
@@ -97,9 +101,9 @@ wss.on("connection", (socket) => {
         return broadcastAfterAction(result.room, sockets);
       }
 
-      return send(socket, "error", { message: "未知操作" });
+      return send(socket, "error", { message: createMessage("error.unknownAction") });
     } catch (error) {
-      send(socket, "error", { message: "消息处理失败" });
+      send(socket, "error", { message: createMessage("error.messageFailed") });
     }
   });
 
@@ -111,6 +115,7 @@ wss.on("connection", (socket) => {
 });
 
 const port = Number(process.env.PORT ?? 3001);
-server.listen(port, () => {
-  console.log(`match2 server listening on http://localhost:${port}`);
+const host = process.env.HOST ?? "0.0.0.0";
+server.listen(port, host, () => {
+  console.log(`match2 server listening on http://${host}:${port}`);
 });
