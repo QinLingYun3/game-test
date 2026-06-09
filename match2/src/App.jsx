@@ -507,6 +507,7 @@ function App() {
                           data-row={rowIndex}
                           data-col={colIndex}
                           className={`tile-slot${isEmpty ? " empty" : ""}${isSelected ? " selected" : ""}`}
+                          style={{ zIndex: isSelected ? 50 : rowIndex + 1 }}
                           disabled={isEmpty || !canInteract}
                           onClick={() => onSelect(rowIndex, colIndex)}
                           onMouseEnter={() => onHoverTile(rowIndex, colIndex)}
@@ -528,7 +529,7 @@ function App() {
                               return (
                                 <span
                                   key={tile.id ?? `${rowIndex}-${colIndex}-${layerIndex}`}
-                                  className={`${visualClass}${isTopLayer && isSelected ? " selected" : ""}`}
+                                  className={`${visualClass}${!isTopLayer ? " buried" : ""}${isTopLayer && isSelected ? " selected" : ""}`}
                                   style={selectedStyle}
                                 >
                                   <span className="suit-icon">{tile.icon ?? "?"}</span>
