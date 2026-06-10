@@ -21,6 +21,7 @@ import {
 const AVATAR_STORAGE_KEY = "match2-avatar-seed";
 const AVATAR_EDIT_BATCH_SIZE = 9;
 const AVATAR_SEED_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const MAX_PLAYERS = 4;
 
 function randomAvatarSeed(length = 10) {
   return Array.from({ length }, () => AVATAR_SEED_CHARS[Math.floor(Math.random() * AVATAR_SEED_CHARS.length)]).join("");
@@ -686,11 +687,17 @@ function App() {
                   </div>
                 </article>
               ))}
-              {room.players.length < 2 && <article className="player-chip empty">{t("lobby.waiting")}</article>}
+              {Array.from({ length: Math.max(0, MAX_PLAYERS - room.players.length) }, (_value, index) => (
+                <article className="player-chip empty" key={`empty-${index}`}>
+                  {t("lobby.waiting")}
+                </article>
+              ))}
             </div>
-            <button className="primary-btn" disabled={!room.canStart} onClick={() => send("start_game")}>
-              {t("lobby.start")}
-            </button>
+            {room.hostId === playerId && (
+              <button className="primary-btn" disabled={!room.canStart} onClick={() => send("start_game")}>
+                {t("lobby.start")}
+              </button>
+            )}
           </section>
         )}
 

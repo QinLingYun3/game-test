@@ -15,6 +15,7 @@ const rooms = new Map();
 const socketToRoom = new Map();
 const reshuffleIntervals = new Map();
 const COMBO_WINDOW_MS = 2000;
+const MAX_PLAYERS = 4;
 
 function createMessage(key, params = {}) {
   return { key, params };
@@ -73,7 +74,7 @@ function serializeRoom(room, playerId) {
     reshuffleCountdown: room.reshuffleCountdown ?? null,
     removablePairs: room.board ? countRemovablePairs(room.board) : 0,
     remainingTiles: room.board ? countRemainingTiles(room.board) : 0,
-    canStart: room.players.length === 2 && room.hostId === playerId && room.phase === "lobby",
+    canStart: room.players.length >= 2 && room.hostId === playerId && room.phase === "lobby",
     you: {
       id: playerId,
       selection: room.selections.get(playerId) ?? null
@@ -173,7 +174,7 @@ export function createRoom({ socketId, nickname, avatarSeed }) {
 export function joinRoom({ socketId, nickname, code, avatarSeed }) {
   const room = rooms.get(code);
   if (!room) return { error: createMessage("error.roomNotFound") };
-  if (room.players.length >= 2) return { error: createMessage("error.roomFull") };
+  if (room.players.length >= MAX_PLAYERS) return { error: createMessage("error.roomFull") };
   if (room.phase !== "lobby") return { error: createMessage("error.gameAlreadyStarted") };
 
   room.players.push(createPlayer(socketId, nickname, avatarSeed));
