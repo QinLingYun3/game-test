@@ -11,6 +11,7 @@ import {
   joinRoom,
   leaveRoom,
   replay,
+  scheduleGameStart,
   startGame,
   updateAvatar
 } from "./roomManager.js";
@@ -103,7 +104,9 @@ wss.on("connection", (socket) => {
       if (type === "start_game") {
         const result = startGame(socketId);
         if (result.error) return send(socket, "error", { message: result.error });
-        return broadcastAfterAction(result.room, sockets);
+        broadcastAfterAction(result.room, sockets);
+        scheduleGameStart(result.room, sockets);
+        return;
       }
 
       if (type === "select_tile") {

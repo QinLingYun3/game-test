@@ -14,6 +14,8 @@ import {
 const rooms = new Map();
 const socketToRoom = new Map();
 const reshuffleIntervals = new Map();
+const startCountdownIntervals = new Map();
+const startRevealTimeouts = new Map();
 const COMBO_WINDOW_MS = 2000;
 const MAX_PLAYERS = 4;
 
@@ -26,6 +28,19 @@ function clearReshuffleCountdown(roomCode) {
   if (intervalId) {
     clearInterval(intervalId);
     reshuffleIntervals.delete(roomCode);
+  }
+}
+
+function clearStartCountdown(roomCode) {
+  const intervalId = startCountdownIntervals.get(roomCode);
+  if (intervalId) {
+    clearInterval(intervalId);
+    startCountdownIntervals.delete(roomCode);
+  }
+  const timeoutId = startRevealTimeouts.get(roomCode);
+  if (timeoutId) {
+    clearTimeout(timeoutId);
+    startRevealTimeouts.delete(roomCode);
   }
 }
 
@@ -71,6 +86,8 @@ function serializeRoom(room, playerId) {
     message: room.message,
     lastMatch: room.lastMatch,
     lastCombo: room.lastCombo ?? null,
+    startCountdown: room.startCountdown ?? null,
+    startReveal: room.startReveal ?? false,
     reshuffleCountdown: room.reshuffleCountdown ?? null,
     removablePairs: room.board ? countRemovablePairs(room.board) : 0,
     remainingTiles: room.board ? countRemainingTiles(room.board) : 0,
@@ -97,12 +114,15 @@ function broadcastRoom(room, sockets) {
 
 function enterLobby(room) {
   clearReshuffleCountdown(room.code);
+  clearStartCountdown(room.code);
   room.phase = "lobby";
   room.board = null;
   room.selections = new Map();
   room.lastMatch = null;
   room.lastCombo = null;
   room.comboTracker = createComboTracker(room.players);
+  room.startCountdown = null;
+  room.startReveal = false;
   room.reshuffleCountdown = null;
   room.message = room.players.length < 2 ? createMessage("server.waitingForPlayer") : createMessage("server.hostCanStart");
   room.players = resetScores(room.players);
@@ -162,6 +182,8 @@ export function createRoom({ socketId, nickname, avatarSeed }) {
     selections: new Map(),
     lastMatch: null,
     lastCombo: null,
+    startCountdown: null,
+    startReveal: false,
     comboTracker: createComboTracker([createPlayer(socketId, nickname, avatarSeed)]),
     message: createMessage("server.waitingForPlayer")
   };
@@ -211,17 +233,69 @@ export function startGame(socketId) {
   room.lastMatch = null;
   room.lastCombo = null;
   room.reshuffleCountdown = null;
+  room.startCountdown = 5;
+  room.startReveal = false;
   room.comboTracker = createComboTracker(room.players);
   room.board = createBoard();
-  room.message = createMessage("server.gameStarted");
+  room.message = createMessage("server.gameStarting", { count: 5 });
   return { room };
+}
+
+export function scheduleGameStart(room, sockets) {
+  clearStartCountdown(room.code);
+
+  const intervalId = setInterval(() => {
+    const liveRoom = rooms.get(room.code);
+    if (!liveRoom) {
+      clearStartCountdown(room.code);
+      return;
+    }
+
+    if (liveRoom.phase !== "game" || liveRoom.startCountdown == null) {
+      clearStartCountdown(room.code);
+      return;
+    }
+
+    if (liveRoom.startCountdown > 1) {
+      liveRoom.startCountdown -= 1;
+      liveRoom.message = createMessage("server.gameStarting", { count: liveRoom.startCountdown });
+      broadcastRoom(liveRoom, sockets);
+      return;
+    }
+
+    clearInterval(intervalId);
+    startCountdownIntervals.delete(room.code);
+    liveRoom.startCountdown = 0;
+    liveRoom.startReveal = true;
+    liveRoom.message = createMessage("server.gameStarted");
+    broadcastRoom(liveRoom, sockets);
+
+    const timeoutId = setTimeout(() => {
+      const revealRoom = rooms.get(room.code);
+      if (!revealRoom) {
+        clearStartCountdown(room.code);
+        return;
+      }
+      revealRoom.startCountdown = null;
+      revealRoom.startReveal = false;
+      startRevealTimeouts.delete(room.code);
+      broadcastRoom(revealRoom, sockets);
+    }, 500);
+
+    startRevealTimeouts.set(room.code, timeoutId);
+  }, 1000);
+
+  startCountdownIntervals.set(room.code, intervalId);
 }
 
 function finishGame(room) {
   clearReshuffleCountdown(room.code);
+  clearStartCountdown(room.code);
   room.phase = "results";
   room.selections = new Map();
   room.lastCombo = null;
+  room.startCountdown = null;
+  room.startReveal = false;
   room.reshuffleCountdown = null;
   room.message = createMessage("server.gameFinished");
 }
@@ -230,6 +304,7 @@ export function handleSelection(socketId, position, sockets) {
   const room = getRoomBySocket(socketId);
   if (!room) return { error: createMessage("error.roomNotFound") };
   if (room.phase !== "game") return { error: createMessage("error.notGamePhase") };
+  if (room.startCountdown != null || room.startReveal) return { error: createMessage("error.waitForCountdown") };
   if (room.reshuffleCountdown) return { error: createMessage("error.waitForReshuffle") };
 
   if (!isPositionSelectable(room.board, position)) return { error: createMessage("error.noSelectableTile") };
@@ -300,6 +375,7 @@ export function leaveRoom(socketId) {
   if (!room) return null;
 
   clearReshuffleCountdown(room.code);
+  clearStartCountdown(room.code);
   room.players = room.players.filter((player) => player.id !== socketId);
   room.selections.delete(socketId);
   room.comboTracker.delete(socketId);

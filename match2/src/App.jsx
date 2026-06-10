@@ -563,6 +563,7 @@ function App() {
   }
 
   const canInteract = room?.phase === "game" && !reshuffling;
+  const startBlocked = room?.phase === "game" && (room.startCountdown != null || room.startReveal);
   const boardRows = Array.isArray(room?.board) ? room.board : [];
   const hasRenderableBoard = boardRows.length > 0;
   const homeErrorTarget = !room ? getHomeErrorTarget(error) : null;
@@ -764,7 +765,7 @@ function App() {
                               data-col={colIndex}
                               className={`tile-slot${isEmpty ? " empty" : ""}${isSelected ? " selected" : ""}`}
                               style={{ zIndex: isSelected ? 50 : rowIndex + 1 }}
-                              disabled={isEmpty || !canInteract}
+                              disabled={isEmpty || !canInteract || startBlocked}
                               onClick={() => onSelect(rowIndex, colIndex)}
                             >
                               {!isEmpty &&
@@ -843,6 +844,19 @@ function App() {
                 >
                   {t("game.comboPopup", { count: comboPopup.count })}
                 </div>
+              </div>
+            )}
+
+            {room.startCountdown != null && (
+              <div className={`game-start-overlay${room.startReveal ? " fading" : ""}`}>
+                {room.startCountdown > 0 && (
+                  <div className="game-start-countdown">
+                    <div className="game-start-ring">
+                      <span className="game-start-number">{room.startCountdown}</span>
+                    </div>
+                    <p className="game-start-label">{t("game.startingLabel")}</p>
+                  </div>
+                )}
               </div>
             )}
           </section>

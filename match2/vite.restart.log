@@ -2,14 +2,14 @@
 > match2-online@1.0.0 dev
 > concurrently "npm:dev:server" "npm:dev:client"
 
-[dev:client] 
-[dev:client] > match2-online@1.0.0 dev:client
-[dev:client] > vite
-[dev:client] 
 [dev:server] 
 [dev:server] > match2-online@1.0.0 dev:server
 [dev:server] > node server/server.js
 [dev:server] 
+[dev:client] 
+[dev:client] > match2-online@1.0.0 dev:client
+[dev:client] > vite
+[dev:client] 
 [dev:server] node:events:486
 [dev:server]       throw er; // Unhandled 'error' event
 [dev:server]       ^
@@ -33,7 +33,7 @@
 [dev:server] Node.js v24.11.1
 [dev:server] npm run dev:server exited with code 1
 [dev:client] 
-[dev:client]   [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m662[22m[2m[0m ms[22m
+[dev:client]   [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m574[22m[2m[0m ms[22m
 [dev:client] 
 [dev:client]   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
 [dev:client]   [32m➜[39m  [1mNetwork[22m: [36mhttp://10.192.91.217:[1m5173[22m/[39m
