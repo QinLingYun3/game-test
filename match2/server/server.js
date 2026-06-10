@@ -11,7 +11,8 @@ import {
   joinRoom,
   leaveRoom,
   replay,
-  startGame
+  startGame,
+  updateAvatar
 } from "./roomManager.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -51,6 +52,13 @@ function normalizeCode(value) {
   return String(value ?? "").trim().slice(0, 4);
 }
 
+function normalizeAvatarSeed(value) {
+  const normalized = String(value ?? "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(0, 24);
+  return normalized || "player";
+}
+
 wss.on("connection", (socket) => {
   const socketId = randomUUID();
   sockets.set(socketId, socket);
@@ -63,22 +71,31 @@ wss.on("connection", (socket) => {
 
       if (type === "create_room") {
         const nickname = normalizeNickname(payload?.nickname);
+        const avatarSeed = normalizeAvatarSeed(payload?.avatarSeed);
         if (!nickname) return send(socket, "error", { message: createMessage("error.enterNickname") });
         const previousRoom = leaveRoom(socketId);
         broadcastAfterAction(previousRoom, sockets);
-        const room = createRoom({ socketId, nickname });
+        const room = createRoom({ socketId, nickname, avatarSeed });
         return broadcastAfterAction(room, sockets);
       }
 
       if (type === "join_room") {
         const nickname = normalizeNickname(payload?.nickname);
         const code = normalizeCode(payload?.code);
+        const avatarSeed = normalizeAvatarSeed(payload?.avatarSeed);
         if (!nickname || code.length !== 4) {
           return send(socket, "error", { message: createMessage("error.enterNicknameAndRoomCode") });
         }
         const previousRoom = leaveRoom(socketId);
         broadcastAfterAction(previousRoom, sockets);
-        const result = joinRoom({ socketId, nickname, code });
+        const result = joinRoom({ socketId, nickname, code, avatarSeed });
+        if (result.error) return send(socket, "error", { message: result.error });
+        return broadcastAfterAction(result.room, sockets);
+      }
+
+      if (type === "update_avatar") {
+        const avatarSeed = normalizeAvatarSeed(payload?.avatarSeed);
+        const result = updateAvatar(socketId, avatarSeed);
         if (result.error) return send(socket, "error", { message: result.error });
         return broadcastAfterAction(result.room, sockets);
       }

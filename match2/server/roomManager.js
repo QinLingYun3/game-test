@@ -14,6 +14,7 @@ import {
 const rooms = new Map();
 const socketToRoom = new Map();
 const reshuffleIntervals = new Map();
+const COMBO_WINDOW_MS = 2000;
 
 function createMessage(key, params = {}) {
   return { key, params };
@@ -35,10 +36,11 @@ function makeRoomCode() {
   return code;
 }
 
-function createPlayer(socketId, nickname) {
+function createPlayer(socketId, nickname, avatarSeed) {
   return {
     id: socketId,
     nickname,
+    avatarSeed,
     score: 0,
     connected: true
   };
@@ -46,6 +48,14 @@ function createPlayer(socketId, nickname) {
 
 function resetScores(players) {
   return players.map((player) => ({ ...player, score: 0 }));
+}
+
+function createComboTracker(players) {
+  return new Map(players.map((player) => [player.id, { count: 0, lastClearedAt: 0 }]));
+}
+
+function getScoreDeltaForCombo(comboCount) {
+  return Math.round(SCORE_PER_MATCH * 1.5 ** Math.max(0, comboCount - 1));
 }
 
 function serializeRoom(room, playerId) {
@@ -59,6 +69,7 @@ function serializeRoom(room, playerId) {
     board: room.board,
     message: room.message,
     lastMatch: room.lastMatch,
+    lastCombo: room.lastCombo ?? null,
     reshuffleCountdown: room.reshuffleCountdown ?? null,
     removablePairs: room.board ? countRemovablePairs(room.board) : 0,
     remainingTiles: room.board ? countRemainingTiles(room.board) : 0,
@@ -89,6 +100,8 @@ function enterLobby(room) {
   room.board = null;
   room.selections = new Map();
   room.lastMatch = null;
+  room.lastCombo = null;
+  room.comboTracker = createComboTracker(room.players);
   room.reshuffleCountdown = null;
   room.message = room.players.length < 2 ? createMessage("server.waitingForPlayer") : createMessage("server.hostCanStart");
   room.players = resetScores(room.players);
@@ -99,6 +112,7 @@ function scheduleDeadlockReshuffle(room, sockets) {
 
   room.selections = new Map();
   room.reshuffleCountdown = 5;
+  room.lastCombo = null;
   room.message = createMessage("server.noMovesReshuffle", { count: 5 });
   broadcastRoom(room, sockets);
 
@@ -127,6 +141,7 @@ function scheduleDeadlockReshuffle(room, sockets) {
     liveRoom.board = reshuffleBoard(liveRoom.board);
     liveRoom.reshuffleCountdown = null;
     liveRoom.lastMatch = null;
+    liveRoom.lastCombo = null;
     liveRoom.message = createMessage("server.boardReshuffled");
     clearReshuffleCountdown(room.code);
     broadcastRoom(liveRoom, sockets);
@@ -135,16 +150,18 @@ function scheduleDeadlockReshuffle(room, sockets) {
   reshuffleIntervals.set(room.code, intervalId);
 }
 
-export function createRoom({ socketId, nickname }) {
+export function createRoom({ socketId, nickname, avatarSeed }) {
   const code = makeRoomCode();
   const room = {
     code,
     hostId: socketId,
     phase: "lobby",
-    players: [createPlayer(socketId, nickname)],
+    players: [createPlayer(socketId, nickname, avatarSeed)],
     board: null,
     selections: new Map(),
     lastMatch: null,
+    lastCombo: null,
+    comboTracker: createComboTracker([createPlayer(socketId, nickname, avatarSeed)]),
     message: createMessage("server.waitingForPlayer")
   };
 
@@ -153,15 +170,25 @@ export function createRoom({ socketId, nickname }) {
   return room;
 }
 
-export function joinRoom({ socketId, nickname, code }) {
+export function joinRoom({ socketId, nickname, code, avatarSeed }) {
   const room = rooms.get(code);
   if (!room) return { error: createMessage("error.roomNotFound") };
   if (room.players.length >= 2) return { error: createMessage("error.roomFull") };
   if (room.phase !== "lobby") return { error: createMessage("error.gameAlreadyStarted") };
 
-  room.players.push(createPlayer(socketId, nickname));
+  room.players.push(createPlayer(socketId, nickname, avatarSeed));
+  room.comboTracker.set(socketId, { count: 0, lastClearedAt: 0 });
   room.message = createMessage("server.playersReady");
   socketToRoom.set(socketId, code);
+  return { room };
+}
+
+export function updateAvatar(socketId, avatarSeed) {
+  const room = getRoomBySocket(socketId);
+  if (!room) return { error: createMessage("error.roomNotFound") };
+  if (room.phase !== "lobby") return { error: createMessage("error.avatarLobbyOnly") };
+
+  room.players = room.players.map((player) => (player.id === socketId ? { ...player, avatarSeed } : player));
   return { room };
 }
 
@@ -181,7 +208,9 @@ export function startGame(socketId) {
   room.players = resetScores(room.players);
   room.selections = new Map();
   room.lastMatch = null;
+  room.lastCombo = null;
   room.reshuffleCountdown = null;
+  room.comboTracker = createComboTracker(room.players);
   room.board = createBoard();
   room.message = createMessage("server.gameStarted");
   return { room };
@@ -191,6 +220,7 @@ function finishGame(room) {
   clearReshuffleCountdown(room.code);
   room.phase = "results";
   room.selections = new Map();
+  room.lastCombo = null;
   room.reshuffleCountdown = null;
   room.message = createMessage("server.gameFinished");
 }
@@ -225,18 +255,30 @@ export function handleSelection(socketId, position, sockets) {
 
   room.board = removePair(room.board, current, position);
   room.selections.delete(socketId);
+  const now = Date.now();
+  const previousCombo = room.comboTracker.get(socketId) ?? { count: 0, lastClearedAt: 0 };
+  const nextComboCount =
+    now - previousCombo.lastClearedAt <= COMBO_WINDOW_MS && previousCombo.count > 0 ? previousCombo.count + 1 : 1;
+  const scoreDelta = getScoreDeltaForCombo(nextComboCount);
+  room.comboTracker.set(socketId, { count: nextComboCount, lastClearedAt: now });
   room.lastMatch = {
     by: socketId,
     pair: [current, position],
     path: result.path,
     tile: result.tile
   };
+  room.lastCombo = {
+    by: socketId,
+    count: nextComboCount,
+    scoreDelta,
+    token: `${socketId}:${now}`
+  };
   room.players = room.players.map((player) =>
-    player.id === socketId ? { ...player, score: player.score + SCORE_PER_MATCH } : player
+    player.id === socketId ? { ...player, score: player.score + scoreDelta } : player
   );
   room.message = createMessage("server.matchScored", {
     nickname: room.players.find((player) => player.id === socketId)?.nickname ?? "",
-    score: SCORE_PER_MATCH
+    score: scoreDelta
   });
 
   if (isBoardCleared(room.board) || countRemainingTiles(room.board) === 0) {
@@ -259,6 +301,7 @@ export function leaveRoom(socketId) {
   clearReshuffleCountdown(room.code);
   room.players = room.players.filter((player) => player.id !== socketId);
   room.selections.delete(socketId);
+  room.comboTracker.delete(socketId);
 
   if (room.players.length === 0) {
     rooms.delete(room.code);

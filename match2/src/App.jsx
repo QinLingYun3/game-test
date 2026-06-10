@@ -18,14 +18,53 @@ import {
   translate
 } from "./i18n.js";
 
+const AVATAR_STORAGE_KEY = "match2-avatar-seed";
+const AVATAR_EDIT_BATCH_SIZE = 9;
+const AVATAR_SEED_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+function randomAvatarSeed(length = 10) {
+  return Array.from({ length }, () => AVATAR_SEED_CHARS[Math.floor(Math.random() * AVATAR_SEED_CHARS.length)]).join("");
+}
+
+function normalizeAvatarSeed(value) {
+  const normalized = String(value ?? "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(0, 24);
+  return normalized || randomAvatarSeed();
+}
+
+function createAvatarBatch() {
+  return Array.from({ length: AVATAR_EDIT_BATCH_SIZE }, () => randomAvatarSeed());
+}
+
+function getAvatarUrl(seed) {
+  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(normalizeAvatarSeed(seed))}`;
+}
+
+function loadPreferredAvatarSeed() {
+  try {
+    return normalizeAvatarSeed(window.localStorage.getItem(AVATAR_STORAGE_KEY));
+  } catch {
+    return randomAvatarSeed();
+  }
+}
+
+function savePreferredAvatarSeed(seed) {
+  try {
+    window.localStorage.setItem(AVATAR_STORAGE_KEY, normalizeAvatarSeed(seed));
+  } catch {
+    // Ignore storage failures in restricted contexts.
+  }
+}
+
 function isBoardPreviewMode() {
   return new URLSearchParams(window.location.search).get("preview");
 }
 
 function createPreviewPlayers(hostId, language) {
   return [
-    { id: hostId, nickname: translate(language, "lobby.host"), score: 0 },
-    { id: "preview-opponent", nickname: translate(language, "lobby.player"), score: 0 }
+    { id: hostId, nickname: translate(language, "lobby.host"), score: 0, avatarSeed: "PreviewHost01" },
+    { id: "preview-opponent", nickname: translate(language, "lobby.player"), score: 0, avatarSeed: "PreviewPlayer02" }
   ];
 }
 
@@ -91,8 +130,23 @@ function createSocketUrl() {
   return `${protocol}//${window.location.hostname}${portSegment}/ws`;
 }
 
-function sortRanking(players) {
-  return [...players].sort((a, b) => b.score - a.score);
+function sortRanking(players, previousOrder = new Map()) {
+  return [...players]
+    .map((player, index) => ({ player, index }))
+    .sort((a, b) => {
+      if (b.player.score !== a.player.score) {
+        return b.player.score - a.player.score;
+      }
+      const previousA = previousOrder.get(a.player.id);
+      const previousB = previousOrder.get(b.player.id);
+      if (previousA != null && previousB != null && previousA !== previousB) {
+        return previousA - previousB;
+      }
+      if (previousA != null && previousB == null) return -1;
+      if (previousA == null && previousB != null) return 1;
+      return a.index - b.index;
+    })
+    .map(({ player }) => player);
 }
 
 function getPathSignature(lastMatch) {
@@ -120,6 +174,42 @@ function getHomeErrorTarget(error) {
     return "join";
   }
   return null;
+}
+
+function copyTextFallback(value) {
+  const textArea = document.createElement("textarea");
+  textArea.value = value;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "fixed";
+  textArea.style.opacity = "0";
+  textArea.style.pointerEvents = "none";
+  document.body.appendChild(textArea);
+  textArea.select();
+  textArea.setSelectionRange(0, textArea.value.length);
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textArea);
+  return copied;
+}
+
+function getConnectionTone(status) {
+  const key = status?.key;
+  if (key === "status.connected") return "connected";
+  if (key === "status.connecting") return "connecting";
+  return "disconnected";
+}
+
+function getComboVisual(count) {
+  const clamped = Math.max(2, count);
+  const size = Math.min(92, 50 + (clamped - 2) * 10);
+  let color = "#ffe98d";
+  if (clamped >= 5) {
+    color = "#ff6548";
+  } else if (clamped >= 4) {
+    color = "#ff8f3f";
+  } else if (clamped >= 3) {
+    color = "#ffc24b";
+  }
+  return { size, color };
 }
 
 function buildOverlayPolyline(path, boardElement) {
@@ -196,6 +286,9 @@ function App() {
   const boardRef = useRef(null);
   const [nickname, setNickname] = useState("");
   const [joinCode, setJoinCode] = useState("");
+  const [avatarSeed, setAvatarSeed] = useState(() => loadPreferredAvatarSeed());
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+  const [avatarOptions, setAvatarOptions] = useState(() => createAvatarBatch());
   const [playerId, setPlayerId] = useState(previewMode ? "preview-player" : "");
   const [room, setRoom] = useState(() =>
     previewRuleMode ? createLayerRuleTestRoom(loadPreferredLanguage()) : previewBoardMode ? createPreviewRoom(loadPreferredLanguage()) : null
@@ -203,14 +296,34 @@ function App() {
   const [error, setError] = useState(null);
   const [status, setStatus] = useState(previewMode ? createMessage("status.preview") : createMessage("status.connecting"));
   const [activePath, setActivePath] = useState(null);
+  const [comboPopup, setComboPopup] = useState(null);
+  const [copiedRoomCode, setCopiedRoomCode] = useState(false);
   const playerCardRefs = useRef(new Map());
   const previousPlayerPositionsRef = useRef(new Map());
+  const previousRankingOrderRef = useRef(new Map());
+  const lastComboTokenRef = useRef("");
   const mySelection = room?.you?.selection;
   const reshuffling = Boolean(room?.reshuffleCountdown);
 
   useEffect(() => {
     savePreferredLanguage(language);
   }, [language]);
+
+  useEffect(() => {
+    savePreferredAvatarSeed(avatarSeed);
+  }, [avatarSeed]);
+
+  useEffect(() => {
+    if (room?.phase !== "lobby" && avatarModalOpen) {
+      setAvatarModalOpen(false);
+    }
+  }, [avatarModalOpen, room?.phase]);
+
+  useEffect(() => {
+    if (!copiedRoomCode) return undefined;
+    const timer = window.setTimeout(() => setCopiedRoomCode(false), 1200);
+    return () => window.clearTimeout(timer);
+  }, [copiedRoomCode]);
 
   useEffect(() => {
     if (previewMode || room) return;
@@ -260,9 +373,26 @@ function App() {
     };
   }, [room?.phase, boardRef, getPathSignature(room?.lastMatch)]);
 
-  const ranking = useMemo(() => sortRanking(room?.players ?? []), [room]);
+  useEffect(() => {
+    const combo = room?.lastCombo;
+    if (!combo?.token || combo.count < 2) return undefined;
+    if (combo.token === lastComboTokenRef.current) return undefined;
+
+    lastComboTokenRef.current = combo.token;
+    setComboPopup({ count: combo.count, by: combo.by, token: combo.token });
+    const timer = window.setTimeout(() => {
+      setComboPopup((current) => (current?.token === combo.token ? null : current));
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [room?.lastCombo]);
+
+  const ranking = useMemo(() => sortRanking(room?.players ?? [], previousRankingOrderRef.current), [room?.players]);
   const t = (key, params) => translate(language, key, params);
   const formatMessage = (value) => resolveText(language, value);
+
+  useEffect(() => {
+    previousRankingOrderRef.current = new Map(ranking.map((player, index) => [player.id, index]));
+  }, [ranking]);
 
   useLayoutEffect(() => {
     const elements = ranking
@@ -306,11 +436,27 @@ function App() {
   }
 
   function onCreateRoom() {
-    send("create_room", { nickname });
+    send("create_room", { nickname, avatarSeed });
   }
 
   function onJoinRoom() {
-    send("join_room", { nickname, code: joinCode });
+    send("join_room", { nickname, code: joinCode, avatarSeed });
+  }
+
+  async function onCopyRoomCode(code) {
+    const value = String(code ?? "");
+    try {
+      if (navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+      } else if (!copyTextFallback(value)) {
+        return;
+      }
+      setCopiedRoomCode(true);
+    } catch {
+      if (copyTextFallback(value)) {
+        setCopiedRoomCode(true);
+      }
+    }
   }
 
   function onSelect(row, col) {
@@ -373,6 +519,34 @@ function App() {
     send("select_tile", { row, col });
   }
 
+  function refreshAvatarOptions() {
+    setAvatarOptions(createAvatarBatch());
+  }
+
+  function onOpenAvatarModal() {
+    refreshAvatarOptions();
+    setAvatarModalOpen(true);
+  }
+
+  function onChooseAvatar(nextSeed) {
+    const normalizedSeed = normalizeAvatarSeed(nextSeed);
+    setAvatarSeed(normalizedSeed);
+    setAvatarModalOpen(false);
+    if (previewMode) {
+      setRoom((currentRoom) => {
+        if (!currentRoom) return currentRoom;
+        return {
+          ...currentRoom,
+          players: currentRoom.players.map((player) =>
+            player.id === playerId ? { ...player, avatarSeed: normalizedSeed } : player
+          )
+        };
+      });
+      return;
+    }
+    send("update_avatar", { avatarSeed: normalizedSeed });
+  }
+
   function regeneratePreviewBoard() {
     if (!previewBoardMode) return;
     setRoom(createPreviewRoom(language));
@@ -392,6 +566,8 @@ function App() {
   const hasRenderableBoard = boardRows.length > 0;
   const homeErrorTarget = !room ? getHomeErrorTarget(error) : null;
   const showGlobalError = Boolean(error) && !homeErrorTarget;
+  const connectionTone = getConnectionTone(status);
+  const currentPlayer = room?.players?.find((player) => player.id === playerId) ?? null;
 
   return (
     <div className={`page-shell${!room ? " home-screen" : ""}`}>
@@ -459,23 +635,55 @@ function App() {
         {room && room.phase !== "game" && (
           <header className="hero">
             <div>
-              <p className="eyebrow">{t("app.eyebrow")}</p>
-              <h1>{t("app.title")}</h1>
+              {room.phase === "lobby" ? (
+                <img className="lobby-logo" src="/img/homelogo.png" alt={t("app.title")} />
+              ) : (
+                <>
+                  <p className="eyebrow">{t("app.eyebrow")}</p>
+                  <h1>{t("app.title")}</h1>
+                </>
+              )}
             </div>
-            <p className="status">{formatMessage(status)}</p>
+            {room.phase !== "lobby" && <p className="status">{formatMessage(status)}</p>}
           </header>
         )}
 
         {room && room.phase === "lobby" && (
           <section className="panel lobby-panel">
-            <div className="room-badge">{t("lobby.roomCode", { code: room.code })}</div>
+            <div className="room-badge-row">
+              <span className={`connection-dot ${connectionTone}`} aria-label={formatMessage(status)} title={formatMessage(status)} />
+              <div className="room-badge">{t("lobby.roomCode", { code: room.code })}</div>
+              <button className="copy-chip" onClick={() => onCopyRoomCode(room.code)}>
+                {copiedRoomCode ? t("lobby.copied") : t("lobby.copy")}
+              </button>
+            </div>
             <h2>{t("lobby.title")}</h2>
             <p className="room-message">{formatMessage(room.message)}</p>
             <div className="player-list">
               {room.players.map((player) => (
-                <article className="player-chip" key={player.id}>
-                  <strong>{player.nickname}</strong>
-                  <span>{player.id === room.hostId ? t("lobby.host") : t("lobby.player")}</span>
+                <article className={`player-chip${player.id === playerId ? " mine" : ""}`} key={player.id}>
+                  <div className="player-chip-avatar-wrap">
+                    <img
+                      className="avatar-image lobby-avatar-image"
+                      src={getAvatarUrl(player.avatarSeed)}
+                      alt={player.nickname}
+                    />
+                    {player.id === playerId && (
+                      <button
+                        className="avatar-edit-btn"
+                        type="button"
+                        aria-label={t("lobby.editAvatar")}
+                        title={t("lobby.editAvatar")}
+                        onClick={onOpenAvatarModal}
+                      >
+                        ✏️
+                      </button>
+                    )}
+                  </div>
+                  <div className="player-chip-meta">
+                    <strong>{player.nickname}</strong>
+                    <span>{player.id === room.hostId ? t("lobby.host") : t("lobby.player")}</span>
+                  </div>
                 </article>
               ))}
               {room.players.length < 2 && <article className="player-chip empty">{t("lobby.waiting")}</article>}
@@ -489,8 +697,8 @@ function App() {
         {room && room.phase === "game" && (
           <section className="panel game-panel">
             <div className="game-topbar">
+              <img className="game-top-logo" src="/img/homelogo.png" alt={t("app.title")} />
               <div className="pill-row">
-                <span className="info-pill hero-pill">{t("game.heroPill", { code: room.code })}</span>
                 <span className="info-pill count-pill">{t("game.countPill", { count: room.removablePairs ?? 0 })}</span>
                 {reshuffling && <span className="info-pill warning">{t("game.reshuffleCountdown", { count: room.reshuffleCountdown })}</span>}
               </div>
@@ -511,7 +719,13 @@ function App() {
                         }
                       }}
                     >
-                      <div className="player-avatar">{getAvatarLabel(player.nickname)}</div>
+                      <div className="player-avatar">
+                        {player.avatarSeed ? (
+                          <img className="avatar-image" src={getAvatarUrl(player.avatarSeed)} alt={player.nickname} />
+                        ) : (
+                          <span>{getAvatarLabel(player.nickname)}</span>
+                        )}
+                      </div>
                       <div className="player-meta">
                         <strong>{player.nickname}</strong>
                         <span>{player.id === room.hostId ? t("lobby.host") : `${t("lobby.player")} ${index + 1}`}</span>
@@ -610,6 +824,20 @@ function App() {
                 </div>
               </div>
             )}
+
+            {comboPopup && (
+              <div className="combo-popup-layer" aria-hidden="true">
+                <div
+                  className="combo-popup"
+                  style={{
+                    "--combo-size": `${getComboVisual(comboPopup.count).size}px`,
+                    "--combo-color": getComboVisual(comboPopup.count).color
+                  }}
+                >
+                  {t("game.comboPopup", { count: comboPopup.count })}
+                </div>
+              </div>
+            )}
           </section>
         )}
 
@@ -634,6 +862,38 @@ function App() {
         )}
 
         {showGlobalError && <p className="error-banner">{formatMessage(error)}</p>}
+
+        {room?.phase === "lobby" && avatarModalOpen && (
+          <div className="avatar-modal-backdrop" onClick={() => setAvatarModalOpen(false)}>
+            <section className="avatar-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="avatar-modal-header">
+                <h3>{t("lobby.avatarTitle")}</h3>
+                {currentPlayer && (
+                  <img
+                    className="avatar-image avatar-modal-current"
+                    src={getAvatarUrl(currentPlayer.avatarSeed ?? avatarSeed)}
+                    alt={currentPlayer.nickname}
+                  />
+                )}
+              </div>
+              <div className="avatar-grid">
+                {avatarOptions.map((seed) => (
+                  <button
+                    key={seed}
+                    type="button"
+                    className={`avatar-option${normalizeAvatarSeed(seed) === normalizeAvatarSeed(currentPlayer?.avatarSeed ?? avatarSeed) ? " selected" : ""}`}
+                    onClick={() => onChooseAvatar(seed)}
+                  >
+                    <img className="avatar-image" src={getAvatarUrl(seed)} alt={seed} />
+                  </button>
+                ))}
+              </div>
+              <button type="button" className="secondary-btn avatar-refresh-btn" onClick={refreshAvatarOptions}>
+                {t("lobby.avatarRefresh")}
+              </button>
+            </section>
+          </div>
+        )}
       </main>
     </div>
   );
