@@ -1,13 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   COLS,
   ROWS,
   SCORE_PER_MATCH,
   countRemainingTiles,
   createBoard,
-  getTopTile,
-  getCellDepth,
-  getRouteDebugPathsAcrossLayers,
   isBoardCleared,
   isValidSelection,
   removePair
@@ -103,6 +100,28 @@ function getPathSignature(lastMatch) {
   return `${lastMatch.by}:${lastMatch.path.map((point) => `${point.row},${point.col}`).join("|")}`;
 }
 
+function getAvatarLabel(nickname) {
+  const normalized = String(nickname ?? "").trim();
+  return normalized ? normalized.slice(0, 1).toUpperCase() : "?";
+}
+
+function getHomeErrorTarget(error) {
+  const key = error?.key;
+  if (!key) return null;
+  if (key === "error.enterNickname" || key === "error.previewOffline" || key === "error.serverNotReady") {
+    return "nickname";
+  }
+  if (
+    key === "error.enterNicknameAndRoomCode" ||
+    key === "error.roomNotFound" ||
+    key === "error.roomFull" ||
+    key === "error.gameAlreadyStarted"
+  ) {
+    return "join";
+  }
+  return null;
+}
+
 function buildOverlayPolyline(path, boardElement) {
   if (!path?.length || !boardElement) return null;
 
@@ -168,21 +187,6 @@ function buildOverlayPolyline(path, boardElement) {
   };
 }
 
-function buildDebugPolylines(paths, boardElement) {
-  if (!paths?.length || !boardElement) return [];
-  return paths
-    .map((entry) => {
-      const overlay = buildOverlayPolyline(entry.path, boardElement);
-      if (!overlay) return null;
-      return {
-        ...overlay,
-        kind: entry.kind,
-        valid: entry.valid
-      };
-    })
-    .filter(Boolean);
-}
-
 function App() {
   const previewMode = isBoardPreviewMode();
   const previewRuleMode = previewMode === "rule-test";
@@ -199,8 +203,8 @@ function App() {
   const [error, setError] = useState(null);
   const [status, setStatus] = useState(previewMode ? createMessage("status.preview") : createMessage("status.connecting"));
   const [activePath, setActivePath] = useState(null);
-  const [hoverTarget, setHoverTarget] = useState(null);
-  const [debugPaths, setDebugPaths] = useState([]);
+  const playerCardRefs = useRef(new Map());
+  const previousPlayerPositionsRef = useRef(new Map());
   const mySelection = room?.you?.selection;
   const reshuffling = Boolean(room?.reshuffleCountdown);
 
@@ -256,42 +260,38 @@ function App() {
     };
   }, [room?.phase, boardRef, getPathSignature(room?.lastMatch)]);
 
-  useEffect(() => {
-    if (!room?.board || room.phase !== "game" || !mySelection || !hoverTarget) {
-      setDebugPaths([]);
-      return;
-    }
-
-    if (mySelection.row === hoverTarget.row && mySelection.col === hoverTarget.col) {
-      setDebugPaths([]);
-      return;
-    }
-
-    const selectedTile = getTopTile(room.board, mySelection.row, mySelection.col);
-    const hoveredTile = getTopTile(room.board, hoverTarget.row, hoverTarget.col);
-    if (!selectedTile || !hoveredTile || selectedTile.type !== hoveredTile.type) {
-      setDebugPaths([]);
-      return;
-    }
-
-    const firstDepth = getCellDepth(room.board, mySelection.row, mySelection.col);
-    const secondDepth = getCellDepth(room.board, hoverTarget.row, hoverTarget.col);
-    const candidates = getRouteDebugPathsAcrossLayers(
-      room.board,
-      mySelection,
-      hoverTarget,
-      firstDepth,
-      secondDepth
-    );
-    const frame = window.requestAnimationFrame(() => {
-      setDebugPaths(buildDebugPolylines(candidates, boardRef.current));
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [room?.board, room?.phase, mySelection, hoverTarget]);
-
   const ranking = useMemo(() => sortRanking(room?.players ?? []), [room]);
   const t = (key, params) => translate(language, key, params);
   const formatMessage = (value) => resolveText(language, value);
+
+  useLayoutEffect(() => {
+    const elements = ranking
+      .map((player) => {
+        const element = playerCardRefs.current.get(player.id);
+        if (!element) return null;
+        return { id: player.id, element, top: element.getBoundingClientRect().top };
+      })
+      .filter(Boolean);
+
+    const previousPositions = previousPlayerPositionsRef.current;
+
+    elements.forEach(({ id, element, top }) => {
+      const previousTop = previousPositions.get(id);
+      if (previousTop == null) return;
+      const deltaY = previousTop - top;
+      if (Math.abs(deltaY) < 1) return;
+
+      element.style.transition = "none";
+      element.style.transform = `translateY(${deltaY}px)`;
+
+      window.requestAnimationFrame(() => {
+        element.style.transition = "transform 220ms ease";
+        element.style.transform = "translateY(0)";
+      });
+    });
+
+    previousPlayerPositionsRef.current = new Map(elements.map(({ id, top }) => [id, top]));
+  }, [ranking]);
 
   function send(type, payload) {
     if (previewMode) {
@@ -314,7 +314,6 @@ function App() {
   }
 
   function onSelect(row, col) {
-    setHoverTarget({ row, col });
     if (previewMode) {
       setRoom((currentRoom) => {
         if (!currentRoom || currentRoom.phase !== "game" || currentRoom.reshuffleCountdown) return currentRoom;
@@ -374,11 +373,6 @@ function App() {
     send("select_tile", { row, col });
   }
 
-  function onHoverTile(row, col) {
-    if (!mySelection) return;
-    setHoverTarget({ row, col });
-  }
-
   function regeneratePreviewBoard() {
     if (!previewBoardMode) return;
     setRoom(createPreviewRoom(language));
@@ -396,58 +390,80 @@ function App() {
   const canInteract = room?.phase === "game" && !reshuffling;
   const boardRows = Array.isArray(room?.board) ? room.board : [];
   const hasRenderableBoard = boardRows.length > 0;
+  const homeErrorTarget = !room ? getHomeErrorTarget(error) : null;
+  const showGlobalError = Boolean(error) && !homeErrorTarget;
 
   return (
-    <div className="page-shell">
+    <div className={`page-shell${!room ? " home-screen" : ""}`}>
       <div className="page-backdrop" />
-      <main className="app-card">
-        <header className="hero">
-          <div>
-            <p className="eyebrow">{t("app.eyebrow")}</p>
-            <h1>{t("app.title")}</h1>
-          </div>
-          <p className="status">{formatMessage(status)}</p>
-        </header>
-
+      <main className={`app-card${room?.phase === "game" ? " game-layout" : ""}`}>
         {!room && (
-          <section className="panel home-panel">
-            <label className="field">
-              <span>{t("language.label")}</span>
-              <select value={language} onChange={(event) => setLanguage(event.target.value)}>
-                {SUPPORTED_LANGUAGES.map((option) => (
-                  <option key={option} value={option}>
-                    {t(`language.${option}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>{t("home.nicknameLabel")}</span>
-              <input
-                value={nickname}
-                onChange={(event) => setNickname(event.target.value)}
-                maxLength={12}
-                placeholder={t("home.nicknamePlaceholder")}
-              />
-            </label>
-            <div className="home-actions">
-              <button className="primary-btn" onClick={onCreateRoom}>
-                {t("home.create")}
-              </button>
-              <label className="field inline-field">
-                <span>{t("home.roomCodeLabel")}</span>
-                <input
-                  value={joinCode}
-                  onChange={(event) => setJoinCode(event.target.value.replace(/\D/g, "").slice(0, 4))}
-                  placeholder={t("home.roomCodePlaceholder")}
-                />
-              </label>
-              <button className="secondary-btn" onClick={onJoinRoom}>
-                {t("home.join")}
-              </button>
+          <section className="home-stage">
+            <div className="home-stage-copy">
+              <img className="home-logo" src="/img/homelogo.png" alt={t("app.title")} />
             </div>
-            <p className="tip">{t("home.tip")}</p>
+
+            <section className="panel home-panel">
+              <label className="field home-inline-field language-field">
+                <span>{t("language.label")}</span>
+                <select value={language} onChange={(event) => setLanguage(event.target.value)}>
+                  {SUPPORTED_LANGUAGES.map((option) => (
+                    <option key={option} value={option}>
+                      {t(`language.${option}`)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="home-inline-action-row">
+                <label className={`field home-inline-field nickname-field${homeErrorTarget === "nickname" ? " has-bubble" : ""}`}>
+                  <span>{t("home.nicknameLabel")}</span>
+                  <input
+                    value={nickname}
+                    onChange={(event) => {
+                      setNickname(event.target.value);
+                      if (homeErrorTarget === "nickname") setError(null);
+                    }}
+                    maxLength={12}
+                    placeholder={t("home.nicknamePlaceholder")}
+                  />
+                  {homeErrorTarget === "nickname" && <p className="field-bubble">{formatMessage(error)}</p>}
+                </label>
+                <div className="home-actions home-actions-stack create-room-actions">
+                  <button className="primary-btn" onClick={onCreateRoom}>
+                    {t("home.create")}
+                  </button>
+                </div>
+              </div>
+              <div className="home-divider" aria-hidden="true" />
+              <div className="join-row">
+                <label className={`field home-inline-field join-field${homeErrorTarget === "join" ? " has-bubble" : ""}`}>
+                  <span>{t("home.joinPrompt")}</span>
+                  <input
+                    value={joinCode}
+                    onChange={(event) => {
+                      setJoinCode(event.target.value.replace(/\D/g, "").slice(0, 4));
+                      if (homeErrorTarget === "join") setError(null);
+                    }}
+                    placeholder={t("home.roomCodePlaceholder")}
+                  />
+                  {homeErrorTarget === "join" && <p className="field-bubble join-bubble">{formatMessage(error)}</p>}
+                </label>
+                <button className="secondary-btn join-btn" onClick={onJoinRoom}>
+                  {t("home.join")}
+                </button>
+              </div>
+            </section>
           </section>
+        )}
+
+        {room && room.phase !== "game" && (
+          <header className="hero">
+            <div>
+              <p className="eyebrow">{t("app.eyebrow")}</p>
+              <h1>{t("app.title")}</h1>
+            </div>
+            <p className="status">{formatMessage(status)}</p>
+          </header>
         )}
 
         {room && room.phase === "lobby" && (
@@ -472,127 +488,126 @@ function App() {
 
         {room && room.phase === "game" && (
           <section className="panel game-panel">
-            <div className="topbar">
-              <div>
-                <p className="room-badge">{t("game.roomCodeMoves", { code: room.code, count: room.removablePairs ?? 0 })}</p>
-                <p className="room-message">{formatMessage(room.message)}</p>
-                {reshuffling && <p className="room-message">{t("game.reshuffleCountdown", { count: room.reshuffleCountdown })}</p>}
-              </div>
-              <div className="scoreboard">
-                {ranking.map((player) => (
-                  <div className={`score-card${player.id === playerId ? " mine" : ""}`} key={player.id}>
-                    <span>{player.nickname}</span>
-                    <strong>{player.score}</strong>
-                  </div>
-                ))}
+            <div className="game-topbar">
+              <div className="pill-row">
+                <span className="info-pill hero-pill">{t("game.heroPill", { code: room.code })}</span>
+                <span className="info-pill count-pill">{t("game.countPill", { count: room.removablePairs ?? 0 })}</span>
+                {reshuffling && <span className="info-pill warning">{t("game.reshuffleCountdown", { count: room.reshuffleCountdown })}</span>}
               </div>
             </div>
 
-            <div className="board-frame">
-              {hasRenderableBoard ? (
-                <div
-                  ref={boardRef}
-                  className="board-grid"
-                  style={{ gridTemplateColumns: `repeat(${COLS}, auto)` }}
-                >
-                  {boardRows.map((row, rowIndex) =>
-                    (Array.isArray(row) ? row : []).map((stack, colIndex) => {
-                      const normalizedStack = Array.isArray(stack) ? stack : [];
-                      const isSelected =
-                        mySelection?.row === rowIndex && mySelection?.col === colIndex;
-                      const isEmpty = normalizedStack.length === 0;
-                      return (
-                        <button
-                          key={`${rowIndex}-${colIndex}`}
-                          data-row={rowIndex}
-                          data-col={colIndex}
-                          className={`tile-slot${isEmpty ? " empty" : ""}${isSelected ? " selected" : ""}`}
-                          style={{ zIndex: isSelected ? 50 : rowIndex + 1 }}
-                          disabled={isEmpty || !canInteract}
-                          onClick={() => onSelect(rowIndex, colIndex)}
-                          onMouseEnter={() => onHoverTile(rowIndex, colIndex)}
-                          onMouseLeave={() => setHoverTarget(null)}
+            <div className="game-main">
+              <aside className="players-panel">
+                <div className="players-column">
+                  {ranking.map((player, index) => (
+                    <article
+                      className={`player-card${player.id === playerId ? " mine" : ""}`}
+                      key={player.id}
+                      ref={(element) => {
+                        if (element) {
+                          playerCardRefs.current.set(player.id, element);
+                        } else {
+                          playerCardRefs.current.delete(player.id);
+                        }
+                      }}
+                    >
+                      <div className="player-avatar">{getAvatarLabel(player.nickname)}</div>
+                      <div className="player-meta">
+                        <strong>{player.nickname}</strong>
+                        <span>{player.id === room.hostId ? t("lobby.host") : `${t("lobby.player")} ${index + 1}`}</span>
+                      </div>
+                      <div className="player-score">{player.score}</div>
+                    </article>
+                  ))}
+                </div>
+              </aside>
+
+              <div className="board-panel">
+                <div className="board-frame">
+                  {hasRenderableBoard ? (
+                    <div
+                      ref={boardRef}
+                      className="board-grid"
+                      style={{ gridTemplateColumns: `repeat(${COLS}, auto)` }}
+                    >
+                      {boardRows.map((row, rowIndex) =>
+                        (Array.isArray(row) ? row : []).map((stack, colIndex) => {
+                          const normalizedStack = Array.isArray(stack) ? stack : [];
+                          const isSelected =
+                            mySelection?.row === rowIndex && mySelection?.col === colIndex;
+                          const isEmpty = normalizedStack.length === 0;
+                          return (
+                            <button
+                              key={`${rowIndex}-${colIndex}`}
+                              data-row={rowIndex}
+                              data-col={colIndex}
+                              className={`tile-slot${isEmpty ? " empty" : ""}${isSelected ? " selected" : ""}`}
+                              style={{ zIndex: isSelected ? 50 : rowIndex + 1 }}
+                              disabled={isEmpty || !canInteract}
+                              onClick={() => onSelect(rowIndex, colIndex)}
+                            >
+                              {!isEmpty &&
+                                normalizedStack.map((tile, layerIndex) => {
+                                  const visualClass =
+                                    layerIndex === 0
+                                      ? "demo-cell"
+                                      : layerIndex === 1
+                                        ? "mid-overlay"
+                                        : "extra-overlay";
+                                  const isTopLayer = layerIndex === normalizedStack.length - 1;
+                                  const selectedStyle =
+                                    isTopLayer && isSelected
+                                      ? { zIndex: normalizedStack.length + 20 }
+                                      : { zIndex: layerIndex + 1 };
+                                  return (
+                                    <span
+                                      key={tile.id ?? `${rowIndex}-${colIndex}-${layerIndex}`}
+                                      className={`${visualClass}${!isTopLayer ? " buried" : ""}${isTopLayer && isSelected ? " selected" : ""}`}
+                                      style={selectedStyle}
+                                    >
+                                      <span className="suit-icon">{tile.icon ?? "?"}</span>
+                                    </span>
+                                  );
+                                })}
+                            </button>
+                          );
+                        })
+                      )}
+                      {activePath && (
+                        <svg
+                          className="match-path-overlay"
+                          viewBox={`0 0 ${activePath.width} ${activePath.height}`}
+                          preserveAspectRatio="none"
                         >
-                          {!isEmpty &&
-                            normalizedStack.map((tile, layerIndex) => {
-                              const visualClass =
-                                layerIndex === 0
-                                  ? "demo-cell"
-                                  : layerIndex === 1
-                                    ? "mid-overlay"
-                                    : "extra-overlay";
-                              const isTopLayer = layerIndex === normalizedStack.length - 1;
-                              const selectedStyle =
-                                isTopLayer && isSelected
-                                  ? { zIndex: normalizedStack.length + 20 }
-                                  : { zIndex: layerIndex + 1 };
-                              return (
-                                <span
-                                  key={tile.id ?? `${rowIndex}-${colIndex}-${layerIndex}`}
-                                  className={`${visualClass}${!isTopLayer ? " buried" : ""}${isTopLayer && isSelected ? " selected" : ""}`}
-                                  style={selectedStyle}
-                                >
-                                  <span className="suit-icon">{tile.icon ?? "?"}</span>
-                                </span>
-                              );
-                            })}
-                        </button>
-                      );
-                    })
-                  )}
-                  {activePath && (
-                    <svg
-                      className="match-path-overlay"
-                      viewBox={`0 0 ${activePath.width} ${activePath.height}`}
-                      preserveAspectRatio="none"
-                    >
-                      <polyline
-                        points={activePath.points.map((point) => `${point.x},${point.y}`).join(" ")}
-                        className="match-path"
-                      />
-                      {activePath.points.map((point, index) => (
-                        <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r="6" className="match-node" />
-                      ))}
-                    </svg>
-                  )}
-                  {debugPaths.length > 0 && (
-                    <svg
-                      className="match-path-overlay debug"
-                      viewBox={`0 0 ${debugPaths[0].width} ${debugPaths[0].height}`}
-                      preserveAspectRatio="none"
-                    >
-                      {debugPaths.map((pathEntry) => (
-                        <g key={pathEntry.kind}>
                           <polyline
-                            points={pathEntry.points.map((point) => `${point.x},${point.y}`).join(" ")}
-                            className={`match-path debug-path${pathEntry.valid ? " valid" : " invalid"}`}
+                            points={activePath.points.map((point) => `${point.x},${point.y}`).join(" ")}
+                            className="match-path"
                           />
-                        </g>
-                      ))}
-                    </svg>
+                          {activePath.points.map((point, index) => (
+                            <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r="6" className="match-node" />
+                          ))}
+                        </svg>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="board-status">{t("game.boardLoading")}</p>
                   )}
                 </div>
-              ) : (
-                <p className="board-status">{t("game.boardLoading")}</p>
-              )}
+              </div>
             </div>
 
-            <div className="legend">
-              <span>{t("game.legendSize", { rows: ROWS, cols: COLS })}</span>
-              <span>{t("game.legendStack")}</span>
-              <span>{t("game.legendScore")}</span>
-              <span>{t("game.legendDebug")}</span>
-            </div>
             {previewMode && (
-              <div className="preview-actions">
-                {previewBoardMode && (
-                  <button className="secondary-btn" onClick={regeneratePreviewBoard}>
-                    {t("preview.regenerate")}
+              <div className="game-tools">
+                <div className="preview-actions">
+                  {previewBoardMode && (
+                    <button className="secondary-btn" onClick={regeneratePreviewBoard}>
+                      {t("preview.regenerate")}
+                    </button>
+                  )}
+                  <button className="secondary-btn" onClick={loadRulePreviewBoard}>
+                    {t("preview.ruleTest")}
                   </button>
-                )}
-                <button className="secondary-btn" onClick={loadRulePreviewBoard}>
-                  {t("preview.ruleTest")}
-                </button>
+                </div>
               </div>
             )}
           </section>
@@ -618,7 +633,7 @@ function App() {
           </section>
         )}
 
-        {error && <p className="error-banner">{formatMessage(error)}</p>}
+        {showGlobalError && <p className="error-banner">{formatMessage(error)}</p>}
       </main>
     </div>
   );
