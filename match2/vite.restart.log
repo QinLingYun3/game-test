@@ -1,0 +1,58 @@
+
+> match2-online@1.0.0 dev
+> concurrently "npm:dev:server" "npm:dev:client"
+
+[dev:server] 
+[dev:server] > match2-online@1.0.0 dev:server
+[dev:server] > node server/server.js
+[dev:server] 
+[dev:client] 
+[dev:client] > match2-online@1.0.0 dev:client
+[dev:client] > vite
+[dev:client] 
+[dev:server] node:events:486
+[dev:server]       throw er; // Unhandled 'error' event
+[dev:server]       ^
+[dev:server] 
+[dev:server] Error: listen EADDRINUSE: address already in use 0.0.0.0:3001
+[dev:server]     at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+[dev:server]     at listenInCluster (node:net:1997:12)
+[dev:server]     at node:net:2206:7
+[dev:server]     at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+[dev:server] Emitted 'error' event on WebSocketServer instance at:
+[dev:server]     at Server.emit (node:events:508:28)
+[dev:server]     at emitErrorNT (node:net:1976:8)
+[dev:server]     at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+[dev:server]   code: 'EADDRINUSE',
+[dev:server]   errno: -4091,
+[dev:server]   syscall: 'listen',
+[dev:server]   address: '0.0.0.0',
+[dev:server]   port: 3001
+[dev:server] }
+[dev:server] 
+[dev:server] Node.js v24.11.1
+[dev:server] npm run dev:server exited with code 1
+[dev:client] 
+[dev:client]   [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m617[22m[2m[0m ms[22m
+[dev:client] 
+[dev:client]   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+[dev:client]   [32m➜[39m  [1mNetwork[22m: [36mhttp://10.192.91.217:[1m5173[22m/[39m
+[dev:client]   [32m➜[39m  [1mNetwork[22m: [36mhttp://172.20.224.1:[1m5173[22m/[39m
+[dev:client] [2m5:54:34 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[dev:client] [2m5:57:06 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m6:17:44 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m6:17:44 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m6:23:02 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m6:24:13 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m6:26:50 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[dev:client] [2m6:29:03 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m6:30:19 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[dev:client] [2m6:30:30 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m6:32:30 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[dev:client] [2m6:32:43 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m6:32:55 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m10:54:38 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m10:56:18 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[dev:client] [2m10:56:30 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m10:57:45 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[dev:client] [2m10:58:01 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
