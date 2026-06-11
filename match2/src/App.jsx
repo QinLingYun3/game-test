@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   COLS,
   ROWS,
@@ -62,6 +62,10 @@ function isBoardPreviewMode() {
   return new URLSearchParams(window.location.search).get("preview");
 }
 
+function isHomeAccessEnabled() {
+  return new URLSearchParams(window.location.search).get("t") === "1";
+}
+
 function createPreviewPlayers(hostId, language) {
   return [
     { id: hostId, nickname: translate(language, "lobby.host"), score: 0, avatarSeed: "PreviewHost01" },
@@ -90,6 +94,32 @@ function createPreviewBaseRoom(board, message, language) {
 
 function createPreviewRoom(language, seed = Date.now()) {
   return createPreviewBaseRoom(createBoard(seed), createMessage("preview.randomBoard"), language);
+}
+
+function createPreviewResultsRoom(language) {
+  const players = [
+    { id: "preview-player", nickname: translate(language, "lobby.host"), score: 2488, maxCombo: 6, avatarSeed: "PreviewHost01" },
+    { id: "preview-player-2", nickname: `${translate(language, "lobby.player")} A`, score: 1825, maxCombo: 4, avatarSeed: "PreviewPlayer02" },
+    { id: "preview-player-3", nickname: `${translate(language, "lobby.player")} B`, score: 1375, maxCombo: 3, avatarSeed: "PreviewPlayer03" },
+    { id: "preview-player-4", nickname: `${translate(language, "lobby.player")} C`, score: 950, maxCombo: 2, avatarSeed: "PreviewPlayer04" }
+  ];
+
+  return {
+    code: "PREVIEW",
+    phase: "results",
+    hostId: "preview-player",
+    players,
+    ranking: sortRanking(players),
+    board: null,
+    message: createMessage("server.gameFinished"),
+    lastMatch: null,
+    lastCombo: null,
+    canStart: false,
+    you: {
+      id: "preview-player",
+      selection: null
+    }
+  };
 }
 
 function createEmptyBoard() {
@@ -170,6 +200,7 @@ function getHomeErrorTarget(error) {
     key === "error.enterNicknameAndRoomCode" ||
     key === "error.roomNotFound" ||
     key === "error.roomFull" ||
+    key === "error.nicknameTaken" ||
     key === "error.gameAlreadyStarted"
   ) {
     return "join";
@@ -211,6 +242,75 @@ function getComboVisual(count) {
     color = "#ffc24b";
   }
   return { size, color };
+}
+
+function getLayerVisual(depth = 1) {
+  if (depth >= 3) {
+    return {
+      className: "extra-overlay",
+      topOffset: -13,
+      width: 67,
+      height: 77
+    };
+  }
+  if (depth === 2) {
+    return {
+      className: "mid-overlay",
+      topOffset: -6,
+      width: 67,
+      height: 77
+    };
+  }
+  return {
+    className: "demo-cell",
+    topOffset: 0,
+    width: 67,
+    height: 77
+  };
+}
+
+function getPolylineLength(points) {
+  let length = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    length += Math.hypot(current.x - previous.x, current.y - previous.y);
+  }
+  return length;
+}
+
+function buildRopeParticles(points) {
+  if (!Array.isArray(points) || points.length < 2) return [];
+  const particles = [];
+  let keyIndex = 0;
+
+  for (let index = 1; index < points.length; index += 1) {
+    const start = points[index - 1];
+    const end = points[index];
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const segmentLength = Math.hypot(dx, dy);
+    const steps = Math.max(2, Math.floor(segmentLength / 36));
+
+    for (let step = 0; step <= steps; step += 1) {
+      const ratio = step / steps;
+      const x = start.x + dx * ratio;
+      const y = start.y + dy * ratio;
+      const spreadX = (Math.sin((index + 1) * (step + 1)) * 28).toFixed(2);
+      const spreadY = (Math.cos((index + 2) * (step + 1)) * 28 - 14).toFixed(2);
+      particles.push({
+        key: `rope-${keyIndex}`,
+        left: x,
+        top: y,
+        x: `${spreadX}px`,
+        y: `${spreadY}px`,
+        delay: `${(0.46 + ratio * 0.08).toFixed(2)}s`
+      });
+      keyIndex += 1;
+    }
+  }
+
+  return particles;
 }
 
 function buildOverlayPolyline(path, boardElement) {
@@ -278,10 +378,67 @@ function buildOverlayPolyline(path, boardElement) {
   };
 }
 
+function buildMatchReveal(lastMatch, boardElement) {
+  if (!lastMatch?.path?.length || !boardElement) return null;
+  const polyline = buildOverlayPolyline(lastMatch.path, boardElement);
+  if (!polyline) return null;
+
+  const boardRect = boardElement.getBoundingClientRect();
+  const pair = Array.isArray(lastMatch.pair) ? lastMatch.pair : [];
+  const depths = lastMatch.depths ?? {};
+  const ghosts = pair
+    .map((position, index) => {
+      const cell = boardElement.querySelector(`[data-row='${position.row}'][data-col='${position.col}']`);
+      if (!cell) return null;
+      const rect = cell.getBoundingClientRect();
+      const depth = index === 0 ? depths.first ?? 1 : depths.second ?? 1;
+      const visual = getLayerVisual(depth);
+      const centerX = rect.left - boardRect.left + visual.width / 2;
+      const centerY = rect.top - boardRect.top + visual.topOffset + visual.height / 2;
+      const particleOffsets = [
+        { x: -26, y: -24 },
+        { x: -8, y: -30 },
+        { x: 16, y: -22 },
+        { x: 28, y: -4 },
+        { x: 20, y: 24 },
+        { x: -4, y: 30 },
+        { x: -24, y: 20 },
+        { x: -30, y: -2 }
+      ];
+      return {
+        key: `${position.row}-${position.col}-${index}`,
+        className: visual.className,
+        left: rect.left - boardRect.left,
+        top: rect.top - boardRect.top + visual.topOffset,
+        width: visual.width,
+        height: visual.height,
+        icon: lastMatch.tile?.icon ?? "?",
+        particles: particleOffsets.map((offset, particleIndex) => ({
+          key: `${position.row}-${position.col}-${particleIndex}`,
+          left: centerX,
+          top: centerY,
+          x: offset.x,
+          y: offset.y
+        }))
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    ...polyline,
+    ghosts,
+    ropeParticles: buildRopeParticles(polyline.points),
+    length: getPolylineLength(polyline.points),
+    token: lastMatch.token ?? `${lastMatch.by}:${polyline.points.map((point) => `${point.x}-${point.y}`).join("|")}`
+  };
+}
+
 function App() {
   const previewMode = isBoardPreviewMode();
   const previewRuleMode = previewMode === "rule-test";
   const previewBoardMode = previewMode === "board";
+  const previewResultsMode = previewMode === "results";
+  const homeAccessEnabled = isHomeAccessEnabled();
   const [language, setLanguage] = useState(() => loadPreferredLanguage());
   const socketRef = useRef(null);
   const boardRef = useRef(null);
@@ -292,17 +449,25 @@ function App() {
   const [avatarOptions, setAvatarOptions] = useState(() => createAvatarBatch());
   const [playerId, setPlayerId] = useState(previewMode ? "preview-player" : "");
   const [room, setRoom] = useState(() =>
-    previewRuleMode ? createLayerRuleTestRoom(loadPreferredLanguage()) : previewBoardMode ? createPreviewRoom(loadPreferredLanguage()) : null
+    previewRuleMode
+      ? createLayerRuleTestRoom(loadPreferredLanguage())
+      : previewBoardMode
+        ? createPreviewRoom(loadPreferredLanguage())
+        : previewResultsMode
+          ? createPreviewResultsRoom(loadPreferredLanguage())
+          : null
   );
   const [error, setError] = useState(null);
   const [status, setStatus] = useState(previewMode ? createMessage("status.preview") : createMessage("status.connecting"));
-  const [activePath, setActivePath] = useState(null);
+  const [matchReveal, setMatchReveal] = useState(null);
   const [comboPopup, setComboPopup] = useState(null);
+  const [playerComboPopup, setPlayerComboPopup] = useState(null);
   const [copiedRoomCode, setCopiedRoomCode] = useState(false);
   const playerCardRefs = useRef(new Map());
   const previousPlayerPositionsRef = useRef(new Map());
   const previousRankingOrderRef = useRef(new Map());
   const lastComboTokenRef = useRef("");
+  const lastPlayerComboTokenRef = useRef("");
   const mySelection = room?.you?.selection;
   const reshuffling = Boolean(room?.reshuffleCountdown);
 
@@ -363,11 +528,11 @@ function App() {
   }, [previewMode]);
 
   useEffect(() => {
-    if (!room?.lastMatch?.path || room.phase !== "game") return undefined;
+    if (!room?.lastMatch?.path || room.phase !== "game" || room.lastMatch.by !== playerId) return undefined;
     const frame = window.requestAnimationFrame(() => {
-      setActivePath(buildOverlayPolyline(room.lastMatch.path, boardRef.current));
+      setMatchReveal(buildMatchReveal(room.lastMatch, boardRef.current));
     });
-    const timer = window.setTimeout(() => setActivePath(null), 900);
+    const timer = window.setTimeout(() => setMatchReveal(null), 950);
     return () => {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(timer);
@@ -377,6 +542,7 @@ function App() {
   useEffect(() => {
     const combo = room?.lastCombo;
     if (!combo?.token || combo.count < 2) return undefined;
+    if (combo.by !== playerId) return undefined;
     if (combo.token === lastComboTokenRef.current) return undefined;
 
     lastComboTokenRef.current = combo.token;
@@ -387,7 +553,21 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [room?.lastCombo]);
 
+  useEffect(() => {
+    const combo = room?.lastCombo;
+    if (!combo?.token || combo.count < 2) return undefined;
+    if (combo.token === lastPlayerComboTokenRef.current) return undefined;
+
+    lastPlayerComboTokenRef.current = combo.token;
+    setPlayerComboPopup({ by: combo.by, count: combo.count, token: combo.token });
+    const timer = window.setTimeout(() => {
+      setPlayerComboPopup((current) => (current?.token === combo.token ? null : current));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [room?.lastCombo]);
+
   const ranking = useMemo(() => sortRanking(room?.players ?? [], previousRankingOrderRef.current), [room?.players]);
+  const resultsRanking = useMemo(() => sortRanking(room?.players ?? []), [room?.players]);
   const t = (key, params) => translate(language, key, params);
   const formatMessage = (value) => resolveText(language, value);
 
@@ -437,10 +617,12 @@ function App() {
   }
 
   function onCreateRoom() {
+    if (!homeAccessEnabled) return;
     send("create_room", { nickname, avatarSeed });
   }
 
   function onJoinRoom() {
+    if (!homeAccessEnabled) return;
     send("join_room", { nickname, code: joinCode, avatarSeed });
   }
 
@@ -508,7 +690,9 @@ function App() {
             by: playerId,
             pair: [current, nextPosition],
             path: result.path,
-            tile: result.tile
+            tile: result.tile,
+            depths: result.depths,
+            token: `preview:${Date.now()}`
           },
           phase: isBoardCleared(nextBoard) ? "results" : "game",
           you: { ...currentRoom.you, selection: null }
@@ -551,14 +735,21 @@ function App() {
   function regeneratePreviewBoard() {
     if (!previewBoardMode) return;
     setRoom(createPreviewRoom(language));
-    setActivePath(null);
+    setMatchReveal(null);
     setError(null);
   }
 
   function loadRulePreviewBoard() {
     if (!previewMode) return;
     setRoom(createLayerRuleTestRoom(language));
-    setActivePath(null);
+    setMatchReveal(null);
+    setError(null);
+  }
+
+  function loadResultsPreview() {
+    if (!previewMode) return;
+    setRoom(createPreviewResultsRoom(language));
+    setMatchReveal(null);
     setError(null);
   }
 
@@ -607,7 +798,7 @@ function App() {
                   {homeErrorTarget === "nickname" && <p className="field-bubble">{formatMessage(error)}</p>}
                 </label>
                 <div className="home-actions home-actions-stack create-room-actions">
-                  <button className="primary-btn" onClick={onCreateRoom}>
+                  <button className="primary-btn" disabled={!homeAccessEnabled} onClick={onCreateRoom}>
                     {t("home.create")}
                   </button>
                 </div>
@@ -626,7 +817,7 @@ function App() {
                   />
                   {homeErrorTarget === "join" && <p className="field-bubble join-bubble">{formatMessage(error)}</p>}
                 </label>
-                <button className="secondary-btn join-btn" onClick={onJoinRoom}>
+                <button className="secondary-btn join-btn" disabled={!homeAccessEnabled} onClick={onJoinRoom}>
                   {t("home.join")}
                 </button>
               </div>
@@ -634,19 +825,11 @@ function App() {
           </section>
         )}
 
-        {room && room.phase !== "game" && (
+        {room && room.phase === "lobby" && (
           <header className="hero">
             <div>
-              {room.phase === "lobby" ? (
-                <img className="lobby-logo" src="/img/homelogo.png" alt={t("app.title")} />
-              ) : (
-                <>
-                  <p className="eyebrow">{t("app.eyebrow")}</p>
-                  <h1>{t("app.title")}</h1>
-                </>
-              )}
+              <img className="lobby-logo" src="/img/homelogo.png" alt={t("app.title")} />
             </div>
-            {room.phase !== "lobby" && <p className="status">{formatMessage(status)}</p>}
           </header>
         )}
 
@@ -705,9 +888,14 @@ function App() {
         {room && room.phase === "game" && (
           <section className="panel game-panel">
             <div className="game-topbar">
-              <img className="game-top-logo" src="/img/homelogo.png" alt={t("app.title")} />
-              <div className="pill-row">
-                <span className="info-pill count-pill">{t("game.countPill", { count: room.removablePairs ?? 0 })}</span>
+              <div className="topbar-brand">
+                <img className="game-top-logo" src="/img/homelogo.png" alt={t("app.title")} />
+              </div>
+              <div className="topbar-status">
+                <div className="removable-orb" aria-label={t("game.countPill", { count: room.removablePairs ?? 0 })}>
+                  <span className="removable-orb-count">{room.removablePairs ?? 0}</span>
+                  <span className="removable-orb-label">{t("game.removableLabel")}</span>
+                </div>
                 {reshuffling && <span className="info-pill warning">{t("game.reshuffleCountdown", { count: room.reshuffleCountdown })}</span>}
               </div>
             </div>
@@ -736,9 +924,12 @@ function App() {
                       </div>
                       <div className="player-meta">
                         <strong>{player.nickname}</strong>
-                        <span>{player.id === room.hostId ? t("lobby.host") : `${t("lobby.player")} ${index + 1}`}</span>
+                        <span>{player.id === room.hostId ? t("lobby.host") : ""}</span>
                       </div>
                       <div className="player-score">{player.score}</div>
+                      {playerComboPopup?.by === player.id && (
+                        <div className="player-combo-badge">{t("game.comboPopup", { count: playerComboPopup.count })}</div>
+                      )}
                     </article>
                   ))}
                 </div>
@@ -764,7 +955,7 @@ function App() {
                               data-row={rowIndex}
                               data-col={colIndex}
                               className={`tile-slot${isEmpty ? " empty" : ""}${isSelected ? " selected" : ""}`}
-                              style={{ zIndex: isSelected ? 50 : rowIndex + 1 }}
+                              style={{ zIndex: rowIndex + 1 }}
                               disabled={isEmpty || !canInteract || startBlocked}
                               onClick={() => onSelect(rowIndex, colIndex)}
                             >
@@ -777,15 +968,11 @@ function App() {
                                         ? "mid-overlay"
                                         : "extra-overlay";
                                   const isTopLayer = layerIndex === normalizedStack.length - 1;
-                                  const selectedStyle =
-                                    isTopLayer && isSelected
-                                      ? { zIndex: normalizedStack.length + 20 }
-                                      : { zIndex: layerIndex + 1 };
                                   return (
                                     <span
                                       key={tile.id ?? `${rowIndex}-${colIndex}-${layerIndex}`}
-                                      className={`${visualClass}${!isTopLayer ? " buried" : ""}${isTopLayer && isSelected ? " selected" : ""}`}
-                                      style={selectedStyle}
+                                      className={`${visualClass}${!isTopLayer ? " buried" : ""}${isTopLayer ? " top-layer" : ""}${isTopLayer && isSelected ? " selected" : ""}`}
+                                      style={{ zIndex: isTopLayer && isSelected ? 999 : layerIndex + 1 }}
                                     >
                                       <span className="suit-icon">{tile.icon ?? "?"}</span>
                                     </span>
@@ -795,20 +982,73 @@ function App() {
                           );
                         })
                       )}
-                      {activePath && (
-                        <svg
-                          className="match-path-overlay"
-                          viewBox={`0 0 ${activePath.width} ${activePath.height}`}
-                          preserveAspectRatio="none"
-                        >
-                          <polyline
-                            points={activePath.points.map((point) => `${point.x},${point.y}`).join(" ")}
-                            className="match-path"
-                          />
-                          {activePath.points.map((point, index) => (
-                            <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r="6" className="match-node" />
+                      {matchReveal && (
+                        <div className="match-reveal-overlay">
+                          {matchReveal.ghosts.map((ghost) => (
+                            <Fragment key={ghost.key}>
+                              <span
+                                className={`match-ghost ${ghost.className}`}
+                                style={{
+                                  left: `${ghost.left}px`,
+                                  top: `${ghost.top}px`,
+                                  width: `${ghost.width}px`,
+                                  height: `${ghost.height}px`
+                                }}
+                              >
+                                <span className="suit-icon">{ghost.icon}</span>
+                              </span>
+                              <div className="match-particles">
+                                {ghost.particles.map((particle) => (
+                                  <span
+                                    key={particle.key}
+                                    className="match-particle"
+                                    style={{
+                                      left: `${particle.left}px`,
+                                      top: `${particle.top}px`,
+                                      "--particle-x": `${particle.x}px`,
+                                      "--particle-y": `${particle.y}px`
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </Fragment>
                           ))}
-                        </svg>
+                          <div className="match-particles rope-particles">
+                            {matchReveal.ropeParticles.map((particle) => (
+                              <span
+                                key={particle.key}
+                                className="match-particle rope-particle"
+                                style={{
+                                  left: `${particle.left}px`,
+                                  top: `${particle.top}px`,
+                                  "--particle-x": particle.x,
+                                  "--particle-y": particle.y,
+                                  "--particle-delay": particle.delay
+                                }}
+                              />
+                            ))}
+                          </div>
+                          <svg
+                            className="match-path-overlay rope-style"
+                            viewBox={`0 0 ${matchReveal.width} ${matchReveal.height}`}
+                            preserveAspectRatio="none"
+                            style={{
+                              "--path-length": `${matchReveal.length}`
+                            }}
+                          >
+                            <polyline
+                              points={matchReveal.points.map((point) => `${point.x},${point.y}`).join(" ")}
+                              className="match-path rope-core"
+                            />
+                            <polyline
+                              points={matchReveal.points.map((point) => `${point.x},${point.y}`).join(" ")}
+                              className="match-path rope-strand"
+                            />
+                            {matchReveal.points.map((point, index) => (
+                              <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r="5.5" className="match-node rope-knot" />
+                            ))}
+                          </svg>
+                        </div>
                       )}
                     </div>
                   ) : (
@@ -859,26 +1099,63 @@ function App() {
                 )}
               </div>
             )}
+
+            {reshuffling && (
+              <div className="reshuffle-modal">
+                <div className="reshuffle-modal-card">
+                  <p>{t("game.reshuffleModal")}</p>
+                  <span>{t("game.reshuffleCountdown", { count: room.reshuffleCountdown })}</span>
+                </div>
+              </div>
+            )}
           </section>
         )}
 
         {room && room.phase === "results" && (
           <section className="panel result-panel">
-            <div className="room-badge">{t("lobby.roomCode", { code: room.code })}</div>
-            <h2>{t("results.title")}</h2>
-            <p className="room-message">{formatMessage(room.message)}</p>
-            <div className="rank-list">
-              {sortRanking(room.players).map((player, index) => (
-                <article className={`rank-card${player.id === playerId ? " mine" : ""}`} key={player.id}>
-                  <span>#{index + 1}</span>
-                  <strong>{player.nickname}</strong>
-                  <b>{t("results.points", { score: player.score })}</b>
+            <div className="results-shell">
+              <div className="results-header">
+                <img className="results-logo" src="/img/homelogo.png" alt={t("app.title")} />
+              </div>
+              {resultsRanking[0] && (
+                <article className="results-champion-card">
+                  <div className="results-champion-badge">#1</div>
+                  <img
+                    className="avatar-image results-champion-avatar"
+                    src={getAvatarUrl(resultsRanking[0].avatarSeed)}
+                    alt={resultsRanking[0].nickname}
+                  />
+                  <div className="results-champion-meta">
+                    <strong>{resultsRanking[0].nickname}</strong>
+                    <div className="results-pill-row">
+                      <span className="results-stat-pill">{t("results.points", { score: resultsRanking[0].score })}</span>
+                      <span className="results-stat-pill combo">{t("results.maxCombo", { count: resultsRanking[0].maxCombo ?? 0 })}</span>
+                    </div>
+                  </div>
                 </article>
-              ))}
+              )}
+              <div className="rank-list">
+                {resultsRanking.slice(1).map((player, index) => {
+                  const rank = index + 2;
+                  return (
+                  <article className={`rank-card${player.id === playerId ? " mine" : ""}`} key={player.id}>
+                    <div className="rank-card-leading">
+                      <span className={`rank-badge rank-${rank}`}>#{rank}</span>
+                      <img className="avatar-image results-avatar" src={getAvatarUrl(player.avatarSeed)} alt={player.nickname} />
+                      <div className="rank-card-meta">
+                        <strong>{player.nickname}</strong>
+                        {player.id === room.hostId && <span>{t("lobby.host")}</span>}
+                        </div>
+                      </div>
+                    <div className="results-pill-row compact">
+                      <span className="results-stat-pill">{t("results.points", { score: player.score })}</span>
+                      <span className="results-stat-pill combo">{t("results.maxCombo", { count: player.maxCombo ?? 0 })}</span>
+                    </div>
+                  </article>
+                  );
+                })}
+              </div>
             </div>
-            <button className="primary-btn" onClick={() => send("replay")}>
-              {t("results.backToLobby")}
-            </button>
           </section>
         )}
 

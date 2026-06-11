@@ -58,12 +58,17 @@ function createPlayer(socketId, nickname, avatarSeed) {
     nickname,
     avatarSeed,
     score: 0,
+    maxCombo: 0,
     connected: true
   };
 }
 
+function normalizeNicknameForCompare(nickname) {
+  return String(nickname ?? "").trim().toLocaleLowerCase();
+}
+
 function resetScores(players) {
-  return players.map((player) => ({ ...player, score: 0 }));
+  return players.map((player) => ({ ...player, score: 0, maxCombo: 0 }));
 }
 
 function createComboTracker(players) {
@@ -198,6 +203,9 @@ export function joinRoom({ socketId, nickname, code, avatarSeed }) {
   if (!room) return { error: createMessage("error.roomNotFound") };
   if (room.players.length >= MAX_PLAYERS) return { error: createMessage("error.roomFull") };
   if (room.phase !== "lobby") return { error: createMessage("error.gameAlreadyStarted") };
+  if (room.players.some((player) => normalizeNicknameForCompare(player.nickname) === normalizeNicknameForCompare(nickname))) {
+    return { error: createMessage("error.nicknameTaken") };
+  }
 
   room.players.push(createPlayer(socketId, nickname, avatarSeed));
   room.comboTracker.set(socketId, { count: 0, lastClearedAt: 0 });
@@ -341,7 +349,9 @@ export function handleSelection(socketId, position, sockets) {
     by: socketId,
     pair: [current, position],
     path: result.path,
-    tile: result.tile
+    tile: result.tile,
+    depths: result.depths,
+    token: `${socketId}:${now}:match`
   };
   room.lastCombo = {
     by: socketId,
@@ -350,7 +360,9 @@ export function handleSelection(socketId, position, sockets) {
     token: `${socketId}:${now}`
   };
   room.players = room.players.map((player) =>
-    player.id === socketId ? { ...player, score: player.score + scoreDelta } : player
+    player.id === socketId
+      ? { ...player, score: player.score + scoreDelta, maxCombo: Math.max(player.maxCombo ?? 0, nextComboCount) }
+      : player
   );
   room.message = createMessage("server.matchScored", {
     nickname: room.players.find((player) => player.id === socketId)?.nickname ?? "",

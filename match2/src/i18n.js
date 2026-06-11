@@ -9,7 +9,7 @@ const translations = {
     "language.en": "English",
     "language.fr": "Francais",
     "app.eyebrow": "ANIMAL MATCH ONLINE",
-    "app.title": "多人在线连连看",
+    "app.title": "MATCH-2 Multiplayer",
     "status.preview": "本地预览模式",
     "status.connecting": "连接中...",
     "status.connected": "已连接服务器",
@@ -36,9 +36,11 @@ const translations = {
     "game.roomCodeMoves": "房号 {{code}} 可消除：{{count}}",
     "game.heroPill": "双人连连看 ⭐️ 房号 {{code}}",
     "game.countPill": "可消除：{{count}}",
+    "game.removableLabel": "可消除",
     "game.reshuffleCountdown": "洗牌倒计时 {{count}}",
     "game.comboPopup": "{{count}} Combo！",
     "game.startingLabel": "准备开始",
+    "game.reshuffleModal": "无可消除的牌，服务器正在刷新。",
     "game.boardLoading": "棋盘数据加载中，请稍候；如果一直不出现，请刷新页面重试。",
     "game.legendSize": "棋盘 {{rows}} x {{cols}}",
     "game.legendStack": "三层金字塔式牌堆",
@@ -48,6 +50,7 @@ const translations = {
     "preview.ruleTest": "层级规则测试局面",
     "results.title": "本局结算",
     "results.points": "{{score}} 分",
+    "results.maxCombo": "最大 {{count}} Combo",
     "results.backToLobby": "返回大厅",
     "preview.randomBoard": "本地随机棋盘预览模式",
     "preview.firstSelected": "已选中第一张牌",
@@ -70,6 +73,7 @@ const translations = {
     "error.enterNicknameAndRoomCode": "请输入昵称和四位房号",
     "error.roomNotFound": "房间不存在",
     "error.roomFull": "房间已满",
+    "error.nicknameTaken": "已有玩家使用该昵称",
     "error.gameAlreadyStarted": "游戏已开始，暂不允许加入",
     "error.notInRoom": "你当前不在房间中",
     "error.onlyHostCanStart": "只有房主可以开始",
@@ -95,7 +99,7 @@ const translations = {
     "language.en": "English",
     "language.fr": "Francais",
     "app.eyebrow": "ANIMAL MATCH ONLINE",
-    "app.title": "Multiplayer Online Match",
+    "app.title": "MATCH-2 Multiplayer",
     "status.preview": "Local preview mode",
     "status.connecting": "Connecting...",
     "status.connected": "Connected to server",
@@ -122,9 +126,11 @@ const translations = {
     "game.roomCodeMoves": "Room {{code}} Removable: {{count}}",
     "game.heroPill": "Two-Player Match ⭐️ Room {{code}}",
     "game.countPill": "Removable: {{count}}",
+    "game.removableLabel": "Removable",
     "game.reshuffleCountdown": "Reshuffle in {{count}}",
     "game.comboPopup": "{{count}} Combo!",
     "game.startingLabel": "Starting",
+    "game.reshuffleModal": "No removable pairs left. The server is refreshing the board.",
     "game.boardLoading": "Loading board data. Refresh the page if it does not appear.",
     "game.legendSize": "Board {{rows}} x {{cols}}",
     "game.legendStack": "Three-layer pyramid stacks",
@@ -134,6 +140,7 @@ const translations = {
     "preview.ruleTest": "Layer Rule Test",
     "results.title": "Results",
     "results.points": "{{score}} pts",
+    "results.maxCombo": "Best {{count}} Combo",
     "results.backToLobby": "Back to Lobby",
     "preview.randomBoard": "Local random board preview",
     "preview.firstSelected": "First tile selected",
@@ -156,6 +163,7 @@ const translations = {
     "error.enterNicknameAndRoomCode": "Please enter a nickname and a 4-digit room code",
     "error.roomNotFound": "Room not found",
     "error.roomFull": "Room is full",
+    "error.nicknameTaken": "Another player is already using that nickname",
     "error.gameAlreadyStarted": "The game has already started. Joining is disabled",
     "error.notInRoom": "You are not currently in a room",
     "error.onlyHostCanStart": "Only the host can start the game",
@@ -181,7 +189,7 @@ const translations = {
     "language.en": "English",
     "language.fr": "Francais",
     "app.eyebrow": "ANIMAL MATCH ONLINE",
-    "app.title": "Jeu de Paires En Ligne Multijoueur",
+    "app.title": "MATCH-2 Multiplayer",
     "status.preview": "Mode d'aperçu local",
     "status.connecting": "Connexion...",
     "status.connected": "Connecte au serveur",
@@ -208,9 +216,11 @@ const translations = {
     "game.roomCodeMoves": "Salle {{code}} Paires restantes: {{count}}",
     "game.heroPill": "Jeu a Deux ⭐️ Salle {{code}}",
     "game.countPill": "Paires restantes : {{count}}",
+    "game.removableLabel": "Paires",
     "game.reshuffleCountdown": "Melange dans {{count}}",
     "game.comboPopup": "{{count}} Combo !",
     "game.startingLabel": "Depart",
+    "game.reshuffleModal": "Aucune paire disponible. Le serveur rafraichit le plateau.",
     "game.boardLoading": "Chargement du plateau. Rechargez la page si rien n'apparait.",
     "game.legendSize": "Plateau {{rows}} x {{cols}}",
     "game.legendStack": "Piles pyramidales sur trois couches",
@@ -220,6 +230,7 @@ const translations = {
     "preview.ruleTest": "Test des couches",
     "results.title": "Resultats",
     "results.points": "{{score}} pts",
+    "results.maxCombo": "Max {{count}} Combo",
     "results.backToLobby": "Retour au salon",
     "preview.randomBoard": "Apercu local d'un plateau aleatoire",
     "preview.firstSelected": "Premiere tuile selectionnee",
@@ -242,6 +253,7 @@ const translations = {
     "error.enterNicknameAndRoomCode": "Veuillez entrer un pseudo et un code de salle a 4 chiffres",
     "error.roomNotFound": "Salle introuvable",
     "error.roomFull": "La salle est complete",
+    "error.nicknameTaken": "Un autre joueur utilise deja ce pseudo",
     "error.gameAlreadyStarted": "La partie a deja commence. Impossible de rejoindre",
     "error.notInRoom": "Vous n'etes actuellement dans aucune salle",
     "error.onlyHostCanStart": "Seul l'hote peut lancer la partie",
@@ -289,10 +301,28 @@ export function resolveText(language, value) {
 
 export function loadPreferredLanguage() {
   try {
-    return normalizeLanguage(window.localStorage.getItem(LANGUAGE_STORAGE_KEY) ?? DEFAULT_LANGUAGE);
+    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored) {
+      return normalizeLanguage(stored);
+    }
   } catch {
-    return DEFAULT_LANGUAGE;
+    // Ignore storage lookup failures and fall back to browser language.
   }
+
+  const browserLanguage = String(
+    window.navigator?.languages?.[0] ??
+      window.navigator?.language ??
+      window.navigator?.userLanguage ??
+      DEFAULT_LANGUAGE
+  )
+    .trim()
+    .toLowerCase();
+
+  if (browserLanguage.startsWith("zh")) return "zh";
+  if (browserLanguage.startsWith("fr")) return "fr";
+  if (browserLanguage.startsWith("en")) return "en";
+
+  return DEFAULT_LANGUAGE;
 }
 
 export function savePreferredLanguage(language) {

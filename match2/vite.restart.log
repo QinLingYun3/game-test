@@ -33,8 +33,26 @@
 [dev:server] Node.js v24.11.1
 [dev:server] npm run dev:server exited with code 1
 [dev:client] 
-[dev:client]   [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m574[22m[2m[0m ms[22m
+[dev:client]   [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m617[22m[2m[0m ms[22m
 [dev:client] 
 [dev:client]   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
 [dev:client]   [32m➜[39m  [1mNetwork[22m: [36mhttp://10.192.91.217:[1m5173[22m/[39m
 [dev:client]   [32m➜[39m  [1mNetwork[22m: [36mhttp://172.20.224.1:[1m5173[22m/[39m
+[dev:client] [2m5:54:34 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[dev:client] [2m5:57:06 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m6:17:44 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m6:17:44 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m6:23:02 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m6:24:13 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m6:26:50 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[dev:client] [2m6:29:03 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m6:30:19 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[dev:client] [2m6:30:30 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m6:32:30 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[dev:client] [2m6:32:43 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m6:32:55 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m10:54:38 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m10:56:18 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[dev:client] [2m10:56:30 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m10:57:45 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[dev:client] [2m10:58:01 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m

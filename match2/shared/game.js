@@ -1,13 +1,68 @@
-export const ROWS = 6;
-export const COLS = 8;
-export const LAYERS = 3;
+export const LEVEL_CONFIGS = [
+  {
+    id: "level-1",
+    name: "Level 1",
+    heightMap: [
+  [0, 0, 1, 1, 1, 1, 1, 1, 0, 0],
+  [0, 1, 2, 2, 2, 2, 2, 2, 1, 0],
+  [1, 2, 3, 3, 3, 3, 3, 3, 2, 1],
+  [1, 2, 3, 3, 3, 3, 3, 3, 2, 1],
+  [1, 2, 3, 3, 3, 3, 3, 3, 2, 1],
+  [1, 2, 3, 3, 3, 3, 3, 3, 2, 1],
+  [0, 1, 2, 2, 2, 2, 2, 2, 1, 0],
+  [0, 0, 1, 1, 1, 1, 1, 1, 0, 0]
+]
+  }
+  // Template:
+  // {
+  //   id: "level-2",
+  //   name: "Level 2",
+  //   heightMap: [
+  //     [0, 1, 1, 1, 1, 1, 1, 0],
+  //     [1, 2, 2, 2, 2, 2, 2, 1],
+  //     [1, 2, 3, 3, 3, 3, 2, 1],
+  //     [1, 2, 3, 4, 4, 3, 2, 1],
+  //     [1, 2, 2, 2, 2, 2, 2, 1],
+  //     [0, 1, 1, 1, 1, 1, 1, 0]
+  //   ]
+  // }
+];
+
+export const ACTIVE_LEVEL_INDEX = 0;
+
+function getLevelConfig(levelIndex = ACTIVE_LEVEL_INDEX) {
+  return LEVEL_CONFIGS[levelIndex] ?? LEVEL_CONFIGS[ACTIVE_LEVEL_INDEX] ?? LEVEL_CONFIGS[0];
+}
+
+function getRows(levelConfig = getLevelConfig()) {
+  return levelConfig.heightMap.length;
+}
+
+function getCols(levelConfig = getLevelConfig()) {
+  return levelConfig.heightMap[0]?.length ?? 0;
+}
+
+function getLayers(levelConfig = getLevelConfig()) {
+  return Math.max(...levelConfig.heightMap.flat(), 0);
+}
+
+const ACTIVE_LEVEL_CONFIG = getLevelConfig();
+
+export const BOARD_CONFIG = {
+  rows: getRows(ACTIVE_LEVEL_CONFIG),
+  cols: getCols(ACTIVE_LEVEL_CONFIG),
+  layers: getLayers(ACTIVE_LEVEL_CONFIG),
+  heightMap: ACTIVE_LEVEL_CONFIG.heightMap
+};
+
+export const ROWS = BOARD_CONFIG.rows;
+export const COLS = BOARD_CONFIG.cols;
+export const LAYERS = BOARD_CONFIG.layers;
 export const SCORE_PER_MATCH = 100;
 
 function createMessage(key, params = {}) {
   return { key, params };
 }
-const LAYER_INSETS = [0, 1, 2];
-
 const TILE_TYPES = [
   { key: "cat", icon: "🐱" },
   { key: "dog", icon: "🐶" },
@@ -85,24 +140,8 @@ function createEmptyBoard() {
   return Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => []));
 }
 
-function createHeightMap() {
-  const heights = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
-
-  for (let layer = 0; layer < LAYERS; layer += 1) {
-    const inset = LAYER_INSETS[layer] ?? layer;
-    const rowStart = inset;
-    const rowEnd = ROWS - inset;
-    const colStart = inset;
-    const colEnd = COLS - inset;
-
-    for (let row = rowStart; row < rowEnd; row += 1) {
-      for (let col = colStart; col < colEnd; col += 1) {
-        heights[row][col] += 1;
-      }
-    }
-  }
-
-  return heights;
+function createHeightMap(levelConfig = ACTIVE_LEVEL_CONFIG) {
+  return levelConfig.heightMap.map((row) => [...row]);
 }
 
 function countHeightMapTiles(heights) {
@@ -434,7 +473,15 @@ export function isValidSelection(board, first, second) {
 
   if (!path) return { ok: false, reason: createMessage("error.noRoute") };
 
-  return { ok: true, path, tile: firstTile };
+  return {
+    ok: true,
+    path,
+    tile: firstTile,
+    depths: {
+      first: firstDepth,
+      second: secondDepth
+    }
+  };
 }
 
 export function removePair(board, first, second) {
