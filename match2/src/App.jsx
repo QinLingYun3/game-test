@@ -17,6 +17,9 @@ import {
   savePreferredLanguage,
   translate
 } from "./i18n.js";
+import useMatchSound from "./useMatchSound.js";
+import useBgm from "./useBgm.js";
+import useCountdownVoice from "./useCountdownVoice.js";
 
 const AVATAR_STORAGE_KEY = "match2-avatar-seed";
 const AVATAR_EDIT_BATCH_SIZE = 9;
@@ -526,6 +529,27 @@ function App() {
 
     return () => socket.close();
   }, [previewMode]);
+
+  // 音效：消除匹配时播放“叮”声
+  const playMatchSound = useMatchSound(getPathSignature(room?.lastMatch));
+
+  // Background music: loop happy.mp3 continuously from homepage, paused during countdown
+  const bgmPlaying = !(room?.startCountdown != null && room?.startCountdown > 0);
+  useBgm({ playing: bgmPlaying, volume: 0.4 });
+
+  // English countdown voice: speak 3, 2, 1, Go! during game start countdown
+  const speakCountdown = useCountdownVoice();
+
+  // Listen for countdown changes and speak the number
+  useEffect(() => {
+    speakCountdown(room?.startCountdown);
+  }, [room?.startCountdown]);
+
+  useEffect(() => {
+    if (room?.lastMatch?.path) {
+      playMatchSound();
+    }
+  }, [getPathSignature(room?.lastMatch)]);
 
   useEffect(() => {
     if (!room?.lastMatch?.path || room.phase !== "game" || room.lastMatch.by !== playerId) return undefined;
