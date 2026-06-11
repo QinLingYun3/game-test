@@ -3,15 +3,15 @@ export const LEVEL_CONFIGS = [
     id: "level-1",
     name: "Level 1",
     heightMap: [
-  [0, 0, 1, 1, 1, 1, 1, 1, 0, 0],
-  [0, 1, 2, 2, 2, 2, 2, 2, 1, 0],
-  [1, 2, 3, 3, 3, 3, 3, 3, 2, 1],
-  [1, 2, 3, 3, 3, 3, 3, 3, 2, 1],
-  [1, 2, 3, 3, 3, 3, 3, 3, 2, 1],
-  [1, 2, 3, 3, 3, 3, 3, 3, 2, 1],
-  [0, 1, 2, 2, 2, 2, 2, 2, 1, 0],
-  [0, 0, 1, 1, 1, 1, 1, 1, 0, 0]
-]
+    [0, 0, 1, 1, 0, 0, 1, 1, 0, 0],
+    [0, 1, 2, 2, 1, 1, 2, 2, 1, 0],
+    [1, 2, 3, 3, 2, 2, 3, 3, 2, 1],
+    [1, 2, 3, 3, 3, 3, 3, 3, 2, 1],
+    [1, 2, 2, 3, 3, 3, 3, 2, 2, 1],
+    [0, 1, 2, 2, 3, 3, 2, 2, 1, 0],
+    [0, 0, 1, 2, 2, 2, 2, 1, 0, 0],
+    [0, 0, 0, 1, 1, 1, 1, 0, 0, 0]
+  ]
   }
   // Template:
   // {
@@ -46,19 +46,29 @@ function getLayers(levelConfig = getLevelConfig()) {
   return Math.max(...levelConfig.heightMap.flat(), 0);
 }
 
-const ACTIVE_LEVEL_CONFIG = getLevelConfig();
+let ACTIVE_LEVEL_CONFIG = getLevelConfig();
 
-export const BOARD_CONFIG = {
+export let BOARD_CONFIG = {
   rows: getRows(ACTIVE_LEVEL_CONFIG),
   cols: getCols(ACTIVE_LEVEL_CONFIG),
   layers: getLayers(ACTIVE_LEVEL_CONFIG),
   heightMap: ACTIVE_LEVEL_CONFIG.heightMap
 };
 
-export const ROWS = BOARD_CONFIG.rows;
-export const COLS = BOARD_CONFIG.cols;
-export const LAYERS = BOARD_CONFIG.layers;
+export let ROWS = BOARD_CONFIG.rows;
+export let COLS = BOARD_CONFIG.cols;
+export let LAYERS = BOARD_CONFIG.layers;
 export const SCORE_PER_MATCH = 100;
+export function reloadLevelConfig(levelIndex = ACTIVE_LEVEL_INDEX) {
+  ACTIVE_LEVEL_CONFIG = getLevelConfig(levelIndex);
+  ROWS = ACTIVE_LEVEL_CONFIG.heightMap.length;
+  COLS = ACTIVE_LEVEL_CONFIG.heightMap[0]?.length ?? 0;
+  LAYERS = Math.max(...ACTIVE_LEVEL_CONFIG.heightMap.flat(), 0);
+  BOARD_CONFIG.rows = ROWS;
+  BOARD_CONFIG.cols = COLS;
+  BOARD_CONFIG.layers = LAYERS;
+  BOARD_CONFIG.heightMap = ACTIVE_LEVEL_CONFIG.heightMap;
+}
 
 function createMessage(key, params = {}) {
   return { key, params };
@@ -392,28 +402,34 @@ export function hasAnyMoves(board) {
 }
 
 export function countRemovablePairs(board) {
-  const positions = [];
+  const typeGroups = {};
   for (let row = 0; row < ROWS; row += 1) {
     for (let col = 0; col < COLS; col += 1) {
       const tile = topTile(board[row][col]);
       if (tile) {
-        positions.push({
-          row,
-          col,
-          type: tile.type,
-          depth: getCellDepth(board, row, col)
+        (typeGroups[tile.type] ??= []).push({
+          row, col, depth: getCellDepth(board, row, col)
         });
       }
     }
   }
 
   let pairCount = 0;
-  for (let i = 0; i < positions.length; i += 1) {
-    for (let j = i + 1; j < positions.length; j += 1) {
-      if (positions[i].type !== positions[j].type) continue;
-      const blockedLayers = normalizeBlockedLayers(positions[i].depth, positions[j].depth);
-      if (findPath(board, positions[i], positions[j], blockedLayers)) {
-        pairCount += 1;
+  for (const tiles of Object.values(typeGroups)) {
+    if (tiles.length < 2) continue;
+    // 贪心匹配：每个 tile 只能用一次，只计实际可连线的 pair
+    const used = new Array(tiles.length).fill(false);
+    for (let i = 0; i < tiles.length; i += 1) {
+      if (used[i]) continue;
+      for (let j = i + 1; j < tiles.length; j += 1) {
+        if (used[j]) continue;
+        const blockedLayers = normalizeBlockedLayers(tiles[i].depth, tiles[j].depth);
+        if (findPath(board, tiles[i], tiles[j], blockedLayers)) {
+          pairCount += 1;
+          used[i] = true;
+          used[j] = true;
+          break;
+        }
       }
     }
   }

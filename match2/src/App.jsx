@@ -22,6 +22,7 @@ import useBgm from "./useBgm.js";
 import useCountdownVoice from "./useCountdownVoice.js";
 
 const AVATAR_STORAGE_KEY = "match2-avatar-seed";
+const VOLUME_STORAGE_KEY = "match2-volume";
 const AVATAR_EDIT_BATCH_SIZE = 9;
 const AVATAR_SEED_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const MAX_PLAYERS = 4;
@@ -56,6 +57,27 @@ function loadPreferredAvatarSeed() {
 function savePreferredAvatarSeed(seed) {
   try {
     window.localStorage.setItem(AVATAR_STORAGE_KEY, normalizeAvatarSeed(seed));
+  } catch {
+    // Ignore storage failures in restricted contexts.
+  }
+}
+
+const VOLUME_DEFAULT = 0.4;
+
+function loadPreferredVolume() {
+  try {
+    const value = window.localStorage.getItem(VOLUME_STORAGE_KEY);
+    if (value == null) return VOLUME_DEFAULT;
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? Math.max(0, Math.min(1, parsed)) : VOLUME_DEFAULT;
+  } catch {
+    return VOLUME_DEFAULT;
+  }
+}
+
+function savePreferredVolume(value) {
+  try {
+    window.localStorage.setItem(VOLUME_STORAGE_KEY, String(value));
   } catch {
     // Ignore storage failures in restricted contexts.
   }
@@ -236,15 +258,7 @@ function getConnectionTone(status) {
 function getComboVisual(count) {
   const clamped = Math.max(2, count);
   const size = Math.min(92, 50 + (clamped - 2) * 10);
-  let color = "#ffe98d";
-  if (clamped >= 5) {
-    color = "#ff6548";
-  } else if (clamped >= 4) {
-    color = "#ff8f3f";
-  } else if (clamped >= 3) {
-    color = "#ffc24b";
-  }
-  return { size, color };
+  return { size, color: "#ff2d2d" };
 }
 
 function getLayerVisual(depth = 1) {
@@ -473,6 +487,8 @@ function App() {
   const lastPlayerComboTokenRef = useRef("");
   const mySelection = room?.you?.selection;
   const reshuffling = Boolean(room?.reshuffleCountdown);
+  const [volume, setVolume] = useState(() => loadPreferredVolume());
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     savePreferredLanguage(language);
@@ -481,6 +497,10 @@ function App() {
   useEffect(() => {
     savePreferredAvatarSeed(avatarSeed);
   }, [avatarSeed]);
+
+  useEffect(() => {
+    savePreferredVolume(volume);
+  }, [volume]);
 
   useEffect(() => {
     if (room?.phase !== "lobby" && avatarModalOpen) {
@@ -530,15 +550,15 @@ function App() {
     return () => socket.close();
   }, [previewMode]);
 
-  // 音效：消除匹配时播放“叮”声
-  const playMatchSound = useMatchSound(getPathSignature(room?.lastMatch));
+  // 音效：消除匹配时播放"叮"声
+  const playMatchSound = useMatchSound(getPathSignature(room?.lastMatch), volume);
 
   // Background music: loop happy.mp3 continuously from homepage, paused during countdown
-  const bgmPlaying = !(room?.startCountdown != null && room?.startCountdown > 0);
-  useBgm({ playing: bgmPlaying, volume: 0.4 });
+  const bgmPlaying = true;
+  useBgm({ playing: bgmPlaying, volume });
 
   // English countdown voice: speak 3, 2, 1, Go! during game start countdown
-  const speakCountdown = useCountdownVoice();
+  const speakCountdown = useCountdownVoice(volume);
 
   // Listen for countdown changes and speak the number
   useEffect(() => {
@@ -1081,6 +1101,32 @@ function App() {
                 </div>
               </div>
             </div>
+
+            {/* Settings gear button & modal */}
+            <button className="settings-btn" onClick={() => setShowSettings(true)} aria-label="设置">
+              ⚙️
+            </button>
+
+            {showSettings && (
+              <div className="settings-modal-backdrop" onClick={() => setShowSettings(false)}>
+                <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="settings-row">
+                    <span className="settings-label">音量</span>
+                    <div className="settings-control">
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={volume}
+                        onChange={(e) => setVolume(Number(e.target.value))}
+                        className="volume-slider"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {previewMode && (
               <div className="game-tools">

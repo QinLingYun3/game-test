@@ -56,3 +56,16 @@
 [dev:client] [2m10:56:30 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
 [dev:client] [2m10:57:45 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
 [dev:client] [2m10:58:01 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m3:58:49 PM[22m [36m[1m[vite][22m[39m [32m.env changed, restarting server...[39m
+[dev:client] [2m3:58:50 PM[22m [36m[1m[vite][22m[39m server restarted.
+[dev:client] [2m3:59:18 PM[22m [36m[1m[vite][22m[39m [32m.env changed, restarting server...[39m
+[dev:client] [2m3:59:18 PM[22m [36m[1m[vite][22m[39m server restarted.
+[dev:client] [2m4:17:54 PM[22m [36m[1m[vite][22m[39m [32m.env changed, restarting server...[39m
+[dev:client] [2m4:17:54 PM[22m [36m[1m[vite][22m[39m server restarted.
+[dev:client] [2m4:18:39 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[dev:client] [2m4:33:45 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[dev:client] [2m4:33:50 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[dev:client] [2m4:33:53 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[dev:client] [2m4:34:03 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] [2m4:34:06 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[dev:client] npm run dev:client exited with code 4294967295

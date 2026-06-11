@@ -1,8 +1,10 @@
 /**
  * 自定义 Hook：在游戏开始倒计时时播放英语语音（3, 2, 1, Go!）
  * 使用 Web Speech API 合成语音，无需额外音频文件。
+ *
+ * @param {number} volume - 音量 0~1（默认 1）
  */
-export default function useCountdownVoice() {
+export default function useCountdownVoice(volume = 1) {
   let lastSpokenCount = null;
 
   /**
@@ -30,7 +32,7 @@ export default function useCountdownVoice() {
     utterance.lang = "en-US";
     utterance.rate = 0.9; // 语速稍慢
     utterance.pitch = 1.0;
-    utterance.volume = 1.0;
+    utterance.volume = volume;
 
     // 取消之前可能正在播放的语音
     window.speechSynthesis.cancel();

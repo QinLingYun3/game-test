@@ -15,9 +15,12 @@ function getDingAudio() {
  * 只需在组件中调用，并传入当前 room.lastMatch 的标识即可。
  *
  * @param {string | null} matchToken - 用于标识最近一次消除的 token（每次消除应不同）
+ * @param {number} volume - 音量 0~1（默认 1）
  */
-export default function useMatchSound(matchToken) {
+export default function useMatchSound(matchToken, volume = 1) {
   const lastTokenRef = useRef(null);
+  const volumeRef = useRef(volume);
+  volumeRef.current = volume;
 
   return useCallback(() => {
     if (!matchToken || matchToken === lastTokenRef.current) return;
@@ -26,6 +29,7 @@ export default function useMatchSound(matchToken) {
     try {
       const audio = getDingAudio();
       audio.currentTime = 0;
+      audio.volume = volumeRef.current;
       audio.play().catch(() => {
         // 静默失败 —— 浏览器可能不允许自动播放
       });

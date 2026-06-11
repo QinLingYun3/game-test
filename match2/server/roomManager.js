@@ -1,4 +1,5 @@
 import {
+  reloadLevelConfig,
   countRemovablePairs,
   SCORE_PER_MATCH,
   countRemainingTiles,
@@ -244,6 +245,7 @@ export function startGame(socketId) {
   room.startCountdown = 5;
   room.startReveal = false;
   room.comboTracker = createComboTracker(room.players);
+  reloadLevelConfig();
   room.board = createBoard();
   room.message = createMessage("server.gameStarting", { count: 5 });
   return { room };
