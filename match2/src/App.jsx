@@ -18,6 +18,7 @@ import {
   translate
 } from "./i18n.js";
 import useMatchSound from "./useMatchSound.js";
+import useComboSound from "./useComboSound.js";
 import useBgm from "./useBgm.js";
 import useCountdownVoice from "./useCountdownVoice.js";
 
@@ -533,6 +534,9 @@ function App() {
   // 音效：消除匹配时播放“叮”声
   const playMatchSound = useMatchSound(getPathSignature(room?.lastMatch));
 
+  // Sound: play combo.mp3 when combo occurs (count >= 2)
+  const playComboSound = useComboSound(room?.lastCombo?.token ?? null);
+
   // Background music: loop happy.mp3 continuously from homepage, paused during countdown
   const bgmPlaying = !(room?.startCountdown != null && room?.startCountdown > 0);
   useBgm({ playing: bgmPlaying, volume: 0.4 });
@@ -576,6 +580,13 @@ function App() {
     }, 500);
     return () => window.clearTimeout(timer);
   }, [room?.lastCombo]);
+
+  // Play combo sound effect when combo popup appears
+  useEffect(() => {
+    if (comboPopup?.token) {
+      playComboSound();
+    }
+  }, [comboPopup?.token]);
 
   useEffect(() => {
     const combo = room?.lastCombo;
