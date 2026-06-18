@@ -82,6 +82,10 @@ function getScoreDeltaForCombo(comboCount) {
 
 function serializeRoom(room, playerId) {
   const ranking = [...room.players].sort((a, b) => b.score - a.score);
+  const now = Date.now();
+  const activeItems = (room.activeItems || [])
+    .filter((item) => item.expiresAt > now)
+    .map(({ type, by, target, token }) => ({ type, by, target, token }));
   return {
     code: room.code,
     phase: room.phase,
@@ -98,6 +102,7 @@ function serializeRoom(room, playerId) {
     removablePairs: room.board ? countRemovablePairs(room.board) : 0,
     remainingTiles: room.board ? countRemainingTiles(room.board) : 0,
     canStart: room.players.length >= 2 && room.hostId === playerId && room.phase === "lobby",
+    activeItems,
     you: {
       id: playerId,
       selection: room.selections.get(playerId) ?? null
@@ -130,6 +135,7 @@ function enterLobby(room) {
   room.startCountdown = null;
   room.startReveal = false;
   room.reshuffleCountdown = null;
+  room.activeItems = [];
   room.message = room.players.length < 2 ? createMessage("server.waitingForPlayer") : createMessage("server.hostCanStart");
   room.players = resetScores(room.players);
 }
@@ -191,6 +197,7 @@ export function createRoom({ socketId, nickname, avatarSeed }) {
     startCountdown: null,
     startReveal: false,
     comboTracker: createComboTracker([createPlayer(socketId, nickname, avatarSeed)]),
+    activeItems: [],
     message: createMessage("server.waitingForPlayer")
   };
 
@@ -227,6 +234,20 @@ export function updateAvatar(socketId, avatarSeed) {
 export function getRoomBySocket(socketId) {
   const code = socketToRoom.get(socketId);
   return code ? rooms.get(code) : null;
+}
+
+export function useSmokeBomb(socketId, targetId) {
+  const room = getRoomBySocket(socketId);
+  if (!room) return { error: createMessage("error.notInRoom") };
+  if (room.phase !== "game") return { error: createMessage("error.notGamePhase") };
+  if (socketId === targetId) return { error: createMessage("error.cannotTargetSelf") };
+  if (!room.players.some((player) => player.id === targetId)) {
+    return { error: createMessage("error.playerNotInRoom") };
+  }
+  const now = Date.now();
+  const token = `smoke:${socketId}:${now}`;
+  room.activeItems.push({ type: "smoke", by: socketId, target: targetId, token, expiresAt: now + 6500 });
+  return { room, by: socketId, target: targetId, token };
 }
 
 export function startGame(socketId) {

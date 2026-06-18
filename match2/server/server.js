@@ -7,13 +7,15 @@ import { WebSocketServer } from "ws";
 import {
   broadcastAfterAction,
   createRoom,
+  getRoomBySocket,
   handleSelection,
   joinRoom,
   leaveRoom,
   replay,
   scheduleGameStart,
   startGame,
-  updateAvatar
+  updateAvatar,
+  useSmokeBomb
 } from "./roomManager.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -113,6 +115,23 @@ wss.on("connection", (socket) => {
         const result = handleSelection(socketId, payload, sockets);
         if (result.error) return send(socket, "error", { message: result.error });
         return broadcastAfterAction(result.room, sockets);
+      }
+
+      if (type === "use_smoke_bomb") {
+        const result = useSmokeBomb(socketId, payload?.targetId);
+        if (result.error) return send(socket, "error", { message: result.error });
+        broadcastAfterAction(result.room, sockets);
+        setTimeout(() => {
+          const liveRoom = getRoomBySocket(socketId);
+          if (!liveRoom || !liveRoom.activeItems) return;
+          const before = liveRoom.activeItems.length;
+          const now = Date.now();
+          liveRoom.activeItems = liveRoom.activeItems.filter((item) => item.expiresAt > now);
+          if (liveRoom.activeItems.length !== before) {
+            broadcastAfterAction(liveRoom, sockets);
+          }
+        }, 6500);
+        return;
       }
 
       if (type === "replay") {

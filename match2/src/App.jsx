@@ -70,6 +70,10 @@ function isHomeAccessEnabled() {
   return new URLSearchParams(window.location.search).get("t") === "1";
 }
 
+function isTestMode() {
+  return new URLSearchParams(window.location.search).get("test") === "1";
+}
+
 function createPreviewPlayers(hostId, language) {
   return [
     { id: hostId, nickname: translate(language, "lobby.host"), score: 0, avatarSeed: "PreviewHost01" },
@@ -467,11 +471,15 @@ function App() {
   const [comboPopup, setComboPopup] = useState(null);
   const [playerComboPopup, setPlayerComboPopup] = useState(null);
   const [copiedRoomCode, setCopiedRoomCode] = useState(false);
+  const [smokeEffect, setSmokeEffect] = useState(null);
+  const [smokeFading, setSmokeFading] = useState(false);
+  const [dragOverTarget, setDragOverTarget] = useState(null);
   const playerCardRefs = useRef(new Map());
   const previousPlayerPositionsRef = useRef(new Map());
   const previousRankingOrderRef = useRef(new Map());
   const lastComboTokenRef = useRef("");
   const lastPlayerComboTokenRef = useRef("");
+  const lastSmokeTokenRef = useRef("");
   const mySelection = room?.you?.selection;
   const reshuffling = Boolean(room?.reshuffleCountdown);
 
@@ -600,6 +608,30 @@ function App() {
     }, 1000);
     return () => window.clearTimeout(timer);
   }, [room?.lastCombo]);
+
+  // Smoke bomb effect timer: 6s display + 0.5s fade out
+  useEffect(() => {
+    const smokeItem = room?.activeItems?.find((item) => item.type === "smoke" && item.target === playerId);
+    if (!smokeItem) return undefined;
+    if (smokeItem.token === lastSmokeTokenRef.current) return undefined;
+    lastSmokeTokenRef.current = smokeItem.token;
+    setSmokeFading(false);
+    setSmokeEffect(smokeItem);
+    return undefined;
+  }, [room?.activeItems, playerId]);
+
+  useEffect(() => {
+    if (!smokeEffect) return undefined;
+    const fadeTimer = window.setTimeout(() => setSmokeFading(true), 6000);
+    const clearTimer = window.setTimeout(() => {
+      setSmokeEffect(null);
+      setSmokeFading(false);
+    }, 6500);
+    return () => {
+      window.clearTimeout(fadeTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [smokeEffect]);
 
   const ranking = useMemo(() => sortRanking(room?.players ?? [], previousRankingOrderRef.current), [room?.players]);
   const resultsRanking = useMemo(() => sortRanking(room?.players ?? []), [room?.players]);
@@ -940,13 +972,28 @@ function App() {
                 <div className="players-column">
                   {ranking.map((player, index) => (
                     <article
-                      className={`player-card${player.id === playerId ? " mine" : ""}`}
+                      className={`player-card${player.id === playerId ? " mine" : ""}${dragOverTarget === player.id ? " drag-highlight" : ""}`}
                       key={player.id}
                       ref={(element) => {
                         if (element) {
                           playerCardRefs.current.set(player.id, element);
                         } else {
                           playerCardRefs.current.delete(player.id);
+                        }
+                      }}
+                      onDragOver={(event) => {
+                        if (player.id !== playerId) {
+                          event.preventDefault();
+                          setDragOverTarget(player.id);
+                        }
+                      }}
+                      onDragLeave={() => setDragOverTarget(null)}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        setDragOverTarget(null);
+                        const item = event.dataTransfer.getData("text/item");
+                        if (item === "smoke" && player.id !== playerId) {
+                          send("use_smoke_bomb", { targetId: player.id });
                         }
                       }}
                     >
@@ -959,7 +1006,14 @@ function App() {
                       </div>
                       <div className="player-meta">
                         <strong>{player.nickname}</strong>
-                        <span>{player.id === room.hostId ? t("lobby.host") : ""}</span>
+                        <div className="player-meta-row">
+                          <span>{player.id === room.hostId ? t("lobby.host") : ""}</span>
+                          {room?.activeItems?.filter((item) => item.target === player.id).map((item) => (
+                            <span key={item.token} className="player-active-item" title={item.type === "smoke" ? "烟雾弹" : item.type}>
+                              {item.type === "smoke" ? "😶‍🌫️" : "🎁"}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                       <div className="player-score">{player.score}</div>
                       {playerComboPopup?.by === player.id && (
@@ -972,7 +1026,26 @@ function App() {
 
               <aside className="items-panel">
                 <div className="items-column">
-                  {/* 道具栏 placeholder */}
+                  <div className="item-slot">
+                    <div
+                      className="item-icon smoke-bomb-icon"
+                      draggable={room?.phase === "game" && !room?.startCountdown && !room?.startReveal && !room?.reshuffleCountdown}
+                      onDragStart={(event) => {
+                        event.dataTransfer.setData("text/item", "smoke");
+                        event.dataTransfer.effectAllowed = "move";
+                      }}
+                      onDoubleClick={() => {
+                        if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
+                        const highestOther = ranking.find((p) => p.id !== playerId);
+                        if (highestOther) {
+                          send("use_smoke_bomb", { targetId: highestOther.id });
+                        }
+                      }}
+                      title="烟雾弹"
+                    >
+                      😶‍🌫️
+                    </div>
+                  </div>
                 </div>
               </aside>
 
@@ -1095,6 +1168,11 @@ function App() {
                   ) : (
                     <p className="board-status">{t("game.boardLoading")}</p>
                   )}
+                  {smokeEffect && (
+                    <div className={`smoke-overlay${smokeFading ? " fade-out" : ""}`}>
+                      <img src="/img/smoke.gif" alt="" className="smoke-gif" />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1148,6 +1226,20 @@ function App() {
                   <span>{t("game.reshuffleCountdown", { count: room.reshuffleCountdown })}</span>
                 </div>
               </div>
+            )}
+
+            {isTestMode() && room.phase === "game" && (
+              <button
+                className="smoke-test-btn"
+                type="button"
+                title="测试烟雾弹"
+                onClick={() => {
+                  setSmokeFading(false);
+                  setSmokeEffect({ token: `test:${Date.now()}` });
+                }}
+              >
+                😶‍🌫️
+              </button>
             )}
           </section>
         )}
