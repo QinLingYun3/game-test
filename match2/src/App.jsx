@@ -537,8 +537,8 @@ function App() {
   // Sound: play combo.mp3 when combo occurs (count >= 2)
   const playComboSound = useComboSound(room?.lastCombo?.token ?? null);
 
-  // Background music: loop happy.mp3 continuously from homepage, paused during countdown
-  const bgmPlaying = !(room?.startCountdown != null && room?.startCountdown > 0);
+  // Background music: loop happy.mp3 continuously from homepage
+  const bgmPlaying = true;
   useBgm({ playing: bgmPlaying, volume: 0.4 });
 
   // English countdown voice: speak 3, 2, 1, Go! during game start countdown
