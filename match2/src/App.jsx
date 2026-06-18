@@ -970,6 +970,12 @@ function App() {
                 </div>
               </aside>
 
+              <aside className="items-panel">
+                <div className="items-column">
+                  {/* 道具栏 placeholder */}
+                </div>
+              </aside>
+
               <div className="board-panel">
                 <div className="board-frame">
                   {hasRenderableBoard ? (

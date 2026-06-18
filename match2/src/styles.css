@@ -749,13 +749,14 @@ button {
 
 .game-main {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 280px minmax(250px, auto) minmax(0, 1fr);
   gap: 20px;
   align-items: start;
   flex: 1;
 }
 
 .players-panel,
+.items-panel,
 .board-panel,
 .game-tools {
   border-radius: 26px;
@@ -766,6 +767,17 @@ button {
 
 .players-panel {
   padding: 8px 4px 8px 0;
+}
+
+.items-panel {
+  padding: 8px 0;
+}
+
+.items-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 250px;
 }
 
 .players-column {
@@ -1892,6 +1904,7 @@ button {
   }
 
   .players-panel,
+  .items-panel,
   .board-panel,
   .game-tools {
     padding-left: 0;
