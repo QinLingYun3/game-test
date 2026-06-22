@@ -171,6 +171,77 @@ function getChaosIcons(realType) {
   return [TILE_TYPES.find((t) => t.key === realType).icon, ...shuffled];
 }
 
+function FeverDisplay({ active, t }) {
+  const [showBubble, setShowBubble] = useState(false);
+  const [showBar, setShowBar] = useState(false);
+  const [exiting, setExiting] = useState(false);
+  const [progress, setProgress] = useState(100);
+  const [barEndAt, setBarEndAt] = useState(null);
+
+  useEffect(() => {
+    if (active) {
+      setShowBubble(true);
+      setShowBar(false);
+      setExiting(false);
+      setBarEndAt(null);
+      const timer = setTimeout(() => {
+        setShowBubble(false);
+        setShowBar(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [active]);
+
+  useEffect(() => {
+    if (!active && showBar) {
+      setExiting(true);
+      const timer = setTimeout(() => {
+        setShowBar(false);
+        setExiting(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [active, showBar]);
+
+  useEffect(() => {
+    if (showBar && !barEndAt) {
+      setBarEndAt(Date.now() + 10000);
+    }
+  }, [showBar, barEndAt]);
+
+  useEffect(() => {
+    if (!showBar || !barEndAt) return;
+    let raf;
+    function tick() {
+      const remaining = Math.max(0, barEndAt - Date.now());
+      setProgress((remaining / 10000) * 100);
+      if (remaining > 0) raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [showBar, barEndAt]);
+
+  if (!showBubble && !showBar) return null;
+
+  const text = t("game.feverTime");
+
+  return (
+    <>
+      {showBubble && (
+        <div className="fever-bubble">
+          <span>{text}</span>
+        </div>
+      )}
+      {showBar && (
+        <div className={`fever-top-bar${exiting ? " exiting" : ""}`}>
+          <div className="fever-top-bar-bg" style={{ width: `${progress}%` }} />
+          <span className="fever-top-bar-text">{text}</span>
+        </div>
+      )}
+    </>
+  );
+}
+
 function createSocketUrl() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const port = window.location.port === "5173" ? "3001" : window.location.port;
@@ -483,6 +554,7 @@ function App() {
   const [smokeEffect, setSmokeEffect] = useState(null);
   const [smokeFading, setSmokeFading] = useState(false);
   const [chaosEffect, setChaosEffect] = useState(null);
+  const [feverEffect, setFeverEffect] = useState(null);
   const [dragOverTarget, setDragOverTarget] = useState(null);
   const playerCardRefs = useRef(new Map());
   const previousPlayerPositionsRef = useRef(new Map());
@@ -593,7 +665,7 @@ function App() {
     if (combo.token === lastComboTokenRef.current) return undefined;
 
     lastComboTokenRef.current = combo.token;
-    setComboPopup({ count: combo.count, by: combo.by, token: combo.token });
+    setComboPopup({ count: combo.count, by: combo.by, token: combo.token, fever: combo.fever ?? false });
     const timer = window.setTimeout(() => {
       setComboPopup((current) => (current?.token === combo.token ? null : current));
     }, 500);
@@ -988,6 +1060,10 @@ function App() {
             <div className="game-topbar">
               <div className="topbar-brand">
                 <img className="game-top-logo" src="/img/homelogo.png" alt={t("app.title")} />
+                <FeverDisplay
+                  active={!!(room?.fever?.active || feverEffect?.active)}
+                  t={t}
+                />
               </div>
               <div className="topbar-status">
                 <div className="removable-orb" aria-label={t("game.countPill", { count: room.removablePairs ?? 0 })}>
@@ -1062,13 +1138,14 @@ function App() {
                   <div className="item-slot">
                     <div className="item-tooltip">
                       <div
-                        className="item-icon smoke-bomb-icon"
-                        draggable={room?.phase === "game" && !room?.startCountdown && !room?.startReveal && !room?.reshuffleCountdown}
+                        className={`item-icon smoke-bomb-icon${(room?.fever?.active || feverEffect?.active) ? " disabled" : ""}`}
+                        draggable={room?.phase === "game" && !room?.startCountdown && !room?.startReveal && !room?.reshuffleCountdown && !room?.fever?.active && !feverEffect?.active}
                         onDragStart={(event) => {
                           event.dataTransfer.setData("text/item", "smoke");
                           event.dataTransfer.effectAllowed = "move";
                         }}
                         onDoubleClick={() => {
+                          if (room?.fever?.active || feverEffect?.active) return;
                           if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
                           const highestOther = ranking.find((p) => p.id !== playerId);
                           if (highestOther) {
@@ -1086,13 +1163,14 @@ function App() {
                   <div className="item-slot">
                     <div className="item-tooltip">
                       <div
-                        className="item-icon chaos-bomb-icon"
-                        draggable={room?.phase === "game" && !room?.startCountdown && !room?.startReveal && !room?.reshuffleCountdown}
+                        className={`item-icon chaos-bomb-icon${(room?.fever?.active || feverEffect?.active) ? " disabled" : ""}`}
+                        draggable={room?.phase === "game" && !room?.startCountdown && !room?.startReveal && !room?.reshuffleCountdown && !room?.fever?.active && !feverEffect?.active}
                         onDragStart={(event) => {
                           event.dataTransfer.setData("text/item", "chaos");
                           event.dataTransfer.effectAllowed = "move";
                         }}
                         onDoubleClick={() => {
+                          if (room?.fever?.active || feverEffect?.active) return;
                           if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
                           const highestOther = ranking.find((p) => p.id !== playerId);
                           if (highestOther) {
@@ -1110,9 +1188,9 @@ function App() {
                   <div className="item-slot">
                     <div className="item-tooltip">
                       <div
-                        className={`item-icon quick-match-icon${(room?.removablePairs ?? 0) === 0 ? " disabled" : ""}`}
+                        className={`item-icon quick-match-icon${(room?.removablePairs ?? 0) === 0 || room?.fever?.active || feverEffect?.active ? " disabled" : ""}`}
                         onDoubleClick={() => {
-                          if ((room?.removablePairs ?? 0) === 0) return;
+                          if ((room?.removablePairs ?? 0) === 0 || room?.fever?.active || feverEffect?.active) return;
                           if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
                           send("use_quick_match");
                         }}
@@ -1287,7 +1365,7 @@ function App() {
             {comboPopup && (
               <div className="combo-popup-layer" aria-hidden="true">
                 <div
-                  className="combo-popup"
+                  className={`combo-popup${comboPopup.fever ? " fever" : ""}`}
                   style={{
                     "--combo-size": `${getComboVisual(comboPopup.count).size}px`,
                     "--combo-color": getComboVisual(comboPopup.count).color
@@ -1344,6 +1422,17 @@ function App() {
                 }}
               >
                 😵‍💫
+              </button>
+            )}
+
+            {isTestMode() && room.phase === "game" && (
+              <button
+                className="fever-test-btn"
+                type="button"
+                title="测试 FEVER TIME"
+                onClick={() => send("trigger_fever")}
+              >
+                🔥
               </button>
             )}
           </section>

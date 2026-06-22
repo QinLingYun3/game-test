@@ -101,7 +101,11 @@ const translations = {
     "server.quickMatchUsed": "{{nickname}} 使用快速消除成功",
     "item.smokeDesc": "烟雾弹：给目标玩家投放一颗烟雾弹，使其看不清牌面。持续时间6秒。",
     "item.chaosDesc": "混乱：目标玩家的牌面图案会被打乱。持续时间6秒。",
-    "item.quickMatchDesc": "快速消除：双击立即消除一对 tile。"
+    "item.quickMatchDesc": "快速消除：双击立即消除一对 tile。",
+    "game.feverTime": "🔥 FEVER TIME！得分加倍，点错扣分！",
+    "server.feverMatchScored": "{{nickname}} FEVER消除！+{{score}}",
+    "server.feverPenalty": "{{nickname}} FEVER点错！-100",
+    "error.feverNoItems": "FEVER TIME期间禁止使用道具"
   },
   en: {
     "language.label": "Language",
@@ -201,7 +205,11 @@ const translations = {
     "server.quickMatchUsed": "{{nickname}} used Quick Match",
     "item.smokeDesc": "Smoke Bomb: cast on an opponent to blind their board for 6 seconds.",
     "item.chaosDesc": "Chaos: scramble tile icons on an opponent's board for 6 seconds.",
-    "item.quickMatchDesc": "Quick Match: double-click to remove one pair instantly."
+    "item.quickMatchDesc": "Quick Match: double-click to remove one pair instantly.",
+    "game.feverTime": "🔥 FEVER TIME! Double score, penalty for wrong click!",
+    "server.feverMatchScored": "{{nickname}} FEVER match! +{{score}}",
+    "server.feverPenalty": "{{nickname}} FEVER penalty! -100",
+    "error.feverNoItems": "Items are disabled during FEVER TIME"
   },
   fr: {
     "language.label": "Langue",
@@ -301,7 +309,11 @@ const translations = {
     "server.quickMatchUsed": "{{nickname}} a utilise Coup rapide",
     "item.smokeDesc": "Bombe fumigene : lance sur un adversaire pour obscurcir son plateau pendant 6 secondes.",
     "item.chaosDesc": "Chaos : melange les icones du plateau adverse pendant 6 secondes.",
-    "item.quickMatchDesc": "Coup rapide : double-clic pour eliminer une paire instantanement."
+    "item.quickMatchDesc": "Coup rapide : double-clic pour eliminer une paire instantanement.",
+    "game.feverTime": "🔥 FEVER TIME ! Double score, pénalité pour mauvais clic !",
+    "server.feverMatchScored": "{{nickname}} FEVER match ! +{{score}}",
+    "server.feverPenalty": "{{nickname}} FEVER penalty ! -100",
+    "error.feverNoItems": "Les objets sont desactives pendant FEVER TIME"
   }
 };
 

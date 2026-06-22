@@ -18,6 +18,7 @@ const socketToRoom = new Map();
 const reshuffleIntervals = new Map();
 const startCountdownIntervals = new Map();
 const startRevealTimeouts = new Map();
+const feverTimers = new Map();
 const COMBO_WINDOW_MS = 2000;
 const MAX_PLAYERS = 4;
 
@@ -43,6 +44,70 @@ function clearStartCountdown(roomCode) {
   if (timeoutId) {
     clearTimeout(timeoutId);
     startRevealTimeouts.delete(roomCode);
+  }
+}
+
+function clearFeverTimer(roomCode) {
+  const id = feverTimers.get(roomCode);
+  if (id) {
+    clearTimeout(id);
+    feverTimers.delete(roomCode);
+  }
+}
+
+function startFeverTimer(room, sockets) {
+  if (room.phase !== "game") return;
+  clearFeverTimer(room.code);
+
+  const delay = 60000 + Math.floor(Math.random() * 120000); // 60s~180s
+  const timerId = setTimeout(() => {
+    const liveRoom = rooms.get(room.code);
+    if (!liveRoom || liveRoom.phase !== "game") return;
+    if (liveRoom.fever?.active || liveRoom.feverEverTriggered) return;
+
+    const now = Date.now();
+    liveRoom.fever = { active: true, startAt: now, endAt: now + 11000 };
+    liveRoom.feverEverTriggered = true;
+    broadcastRoom(liveRoom, sockets);
+
+    const endTimerId = setTimeout(() => {
+      const endRoom = rooms.get(room.code);
+      if (!endRoom) return;
+      endRoom.fever = { active: false, startAt: endRoom.fever?.startAt ?? 0, endAt: Date.now() };
+      broadcastRoom(endRoom, sockets);
+      startFeverTimer(endRoom, sockets);
+    }, 11000);
+
+    feverTimers.set(room.code, endTimerId);
+  }, delay);
+
+  feverTimers.set(room.code, timerId);
+}
+
+export function triggerFeverNow(room, sockets) {
+  if (room.fever?.active || room.feverEverTriggered) return;
+  clearFeverTimer(room.code);
+  const now = Date.now();
+  room.fever = { active: true, startAt: now, endAt: now + 11000 };
+  room.feverEverTriggered = true;
+  broadcastRoom(room, sockets);
+
+  const endTimerId = setTimeout(() => {
+    const endRoom = rooms.get(room.code);
+    if (!endRoom) return;
+    endRoom.fever = { active: false, startAt: endRoom.fever?.startAt ?? 0, endAt: Date.now() };
+    broadcastRoom(endRoom, sockets);
+    startFeverTimer(endRoom, sockets);
+  }, 11000);
+
+  feverTimers.set(room.code, endTimerId);
+}
+
+function maybeTriggerFeverByTiles(room, sockets) {
+  if (room.feverEverTriggered || !room.initialTileCount) return;
+  const remaining = countRemainingTiles(room.board);
+  if (remaining <= Math.floor(room.initialTileCount / 2)) {
+    triggerFeverNow(room, sockets);
   }
 }
 
@@ -104,6 +169,7 @@ function serializeRoom(room, playerId) {
     remainingTiles: room.board ? countRemainingTiles(room.board) : 0,
     canStart: room.players.length >= 2 && room.hostId === playerId && room.phase === "lobby",
     activeItems,
+    fever: room.fever ?? { active: false, startAt: 0, endAt: 0 },
     you: {
       id: playerId,
       selection: room.selections.get(playerId) ?? null
@@ -127,6 +193,7 @@ function broadcastRoom(room, sockets) {
 function enterLobby(room) {
   clearReshuffleCountdown(room.code);
   clearStartCountdown(room.code);
+  clearFeverTimer(room.code);
   room.phase = "lobby";
   room.board = null;
   room.selections = new Map();
@@ -138,6 +205,9 @@ function enterLobby(room) {
   room.reshuffleCountdown = null;
   room.activeItems = [];
   room.itemQueue = [];
+  room.fever = { active: false, startAt: 0, endAt: 0 };
+  room.feverEverTriggered = false;
+  room.initialTileCount = 0;
   room.message = room.players.length < 2 ? createMessage("server.waitingForPlayer") : createMessage("server.hostCanStart");
   room.players = resetScores(room.players);
 }
@@ -201,6 +271,9 @@ export function createRoom({ socketId, nickname, avatarSeed }) {
     comboTracker: createComboTracker([createPlayer(socketId, nickname, avatarSeed)]),
     activeItems: [],
     itemQueue: [],
+    fever: { active: false, startAt: 0, endAt: 0 },
+    feverEverTriggered: false,
+    initialTileCount: 0,
     message: createMessage("server.waitingForPlayer")
   };
 
@@ -243,6 +316,7 @@ export function useChaosBomb(socketId, targetId) {
   const room = getRoomBySocket(socketId);
   if (!room) return { error: createMessage("error.notInRoom") };
   if (room.phase !== "game") return { error: createMessage("error.notGamePhase") };
+  if (room.fever?.active) return { error: createMessage("error.feverNoItems") };
   if (socketId === targetId) return { error: createMessage("error.cannotTargetSelf") };
   if (!room.players.some((player) => player.id === targetId)) {
     return { error: createMessage("error.playerNotInRoom") };
@@ -263,6 +337,7 @@ export function useSmokeBomb(socketId, targetId) {
   const room = getRoomBySocket(socketId);
   if (!room) return { error: createMessage("error.notInRoom") };
   if (room.phase !== "game") return { error: createMessage("error.notGamePhase") };
+  if (room.fever?.active) return { error: createMessage("error.feverNoItems") };
   if (socketId === targetId) return { error: createMessage("error.cannotTargetSelf") };
   if (!room.players.some((player) => player.id === targetId)) {
     return { error: createMessage("error.playerNotInRoom") };
@@ -295,8 +370,11 @@ export function startGame(socketId) {
   room.startCountdown = 5;
   room.startReveal = false;
   room.comboTracker = createComboTracker(room.players);
+  room.fever = { active: false, startAt: 0, endAt: 0 };
+  room.feverEverTriggered = false;
   reloadLevelConfig();
   room.board = createBoard();
+  room.initialTileCount = countRemainingTiles(room.board);
   room.message = createMessage("server.gameStarting", { count: 5 });
   return { room };
 }
@@ -340,6 +418,7 @@ export function scheduleGameStart(room, sockets) {
       revealRoom.startReveal = false;
       startRevealTimeouts.delete(room.code);
       broadcastRoom(revealRoom, sockets);
+      startFeverTimer(revealRoom, sockets);
     }, 500);
 
     startRevealTimeouts.set(room.code, timeoutId);
@@ -351,6 +430,7 @@ export function scheduleGameStart(room, sockets) {
 function finishGame(room) {
   clearReshuffleCountdown(room.code);
   clearStartCountdown(room.code);
+  clearFeverTimer(room.code);
   room.phase = "results";
   room.selections = new Map();
   room.lastCombo = null;
@@ -370,6 +450,8 @@ export function handleSelection(socketId, position, sockets) {
   if (!isPositionSelectable(room.board, position)) return { error: createMessage("error.noSelectableTile") };
 
   const current = room.selections.get(socketId);
+  const now = Date.now();
+
   if (current && current.row === position.row && current.col === position.col) {
     room.selections.delete(socketId);
     room.message = createMessage("server.selectionCanceled");
@@ -377,25 +459,43 @@ export function handleSelection(socketId, position, sockets) {
   }
 
   if (!current) {
-    room.selections.set(socketId, position);
+    room.selections.set(socketId, { ...position, selectedAt: now });
     room.message = createMessage("server.firstSelected");
     return { room };
   }
 
   const result = isValidSelection(room.board, current, position);
+  const feverActive = room.fever?.active === true;
+  const isFeverMatch = feverActive && current.selectedAt != null && current.selectedAt >= room.fever.startAt;
+
   if (!result.ok) {
-    room.selections.set(socketId, position);
-    room.message = result.reason;
+    if (isFeverMatch) {
+      room.players = room.players.map((player) =>
+        player.id === socketId
+          ? { ...player, score: Math.max(0, player.score - 100) }
+          : player
+      );
+      room.lastMatch = null;
+      room.lastCombo = null;
+      room.message = createMessage("server.feverPenalty", {
+        nickname: room.players.find((p) => p.id === socketId)?.nickname ?? ""
+      });
+    } else {
+      room.selections.set(socketId, position);
+      room.message = result.reason;
+    }
     return { room };
   }
 
   room.board = removePair(room.board, current, position);
   room.selections.delete(socketId);
-  const now = Date.now();
+  maybeTriggerFeverByTiles(room, sockets);
   const previousCombo = room.comboTracker.get(socketId) ?? { count: 0, lastClearedAt: 0 };
-  const nextComboCount =
+  let nextComboCount =
     now - previousCombo.lastClearedAt <= COMBO_WINDOW_MS && previousCombo.count > 0 ? previousCombo.count + 1 : 1;
-  const scoreDelta = getScoreDeltaForCombo(nextComboCount);
+  const baseScore = getScoreDeltaForCombo(nextComboCount);
+  const scoreDelta = isFeverMatch ? baseScore * 2 : baseScore;
+
   room.comboTracker.set(socketId, { count: nextComboCount, lastClearedAt: now });
   room.lastMatch = {
     by: socketId,
@@ -409,17 +509,21 @@ export function handleSelection(socketId, position, sockets) {
     by: socketId,
     count: nextComboCount,
     scoreDelta,
-    token: `${socketId}:${now}`
+    token: `${socketId}:${now}`,
+    fever: isFeverMatch
   };
   room.players = room.players.map((player) =>
     player.id === socketId
       ? { ...player, score: player.score + scoreDelta, maxCombo: Math.max(player.maxCombo ?? 0, nextComboCount) }
       : player
   );
-  room.message = createMessage("server.matchScored", {
-    nickname: room.players.find((player) => player.id === socketId)?.nickname ?? "",
-    score: scoreDelta
-  });
+  room.message = createMessage(
+    isFeverMatch ? "server.feverMatchScored" : "server.matchScored",
+    {
+      nickname: room.players.find((p) => p.id === socketId)?.nickname ?? "",
+      score: scoreDelta
+    }
+  );
 
   if (isBoardCleared(room.board) || countRemainingTiles(room.board) === 0) {
     finishGame(room);
@@ -437,6 +541,7 @@ export function handleQuickMatch(socketId, sockets) {
   const room = getRoomBySocket(socketId);
   if (!room) return { error: createMessage("error.roomNotFound") };
   if (room.phase !== "game") return { error: createMessage("error.notGamePhase") };
+  if (room.fever?.active) return { error: createMessage("error.feverNoItems") };
   if (room.startCountdown != null || room.startReveal) return { error: createMessage("error.waitForCountdown") };
   if (room.reshuffleCountdown) return { error: createMessage("error.waitForReshuffle") };
   if (countRemovablePairs(room.board) === 0) return { error: createMessage("error.noRemovablePairs") };
@@ -447,6 +552,7 @@ export function handleQuickMatch(socketId, sockets) {
   const { pair, path, tile, depths } = match;
   room.board = removePair(room.board, pair[0], pair[1]);
   room.selections.delete(socketId);
+  maybeTriggerFeverByTiles(room, sockets);
   const now = Date.now();
   room.comboTracker.set(socketId, { count: 0, lastClearedAt: 0 });
 
@@ -492,6 +598,7 @@ export function leaveRoom(socketId) {
 
   clearReshuffleCountdown(room.code);
   clearStartCountdown(room.code);
+  clearFeverTimer(room.code);
   room.players = room.players.filter((player) => player.id !== socketId);
   room.selections.delete(socketId);
   room.comboTracker.delete(socketId);

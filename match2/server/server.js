@@ -15,6 +15,7 @@ import {
   replay,
   scheduleGameStart,
   startGame,
+  triggerFeverNow,
   updateAvatar,
   useChaosBomb,
   useSmokeBomb
@@ -179,6 +180,16 @@ wss.on("connection", (socket) => {
             broadcastAfterAction(liveRoom, sockets);
           }
         }, 6500);
+        return;
+      }
+
+      if (type === "trigger_fever") {
+        const room = getRoomBySocket(socketId);
+        if (!room) return send(socket, "error", { message: createMessage("error.notInRoom") });
+        if (room.hostId !== socketId) return send(socket, "error", { message: createMessage("error.onlyHostCanStart") });
+        if (room.phase !== "game") return send(socket, "error", { message: createMessage("error.gameNotStarted") });
+        triggerFeverNow(room, sockets);
+        broadcastAfterAction(room, sockets);
         return;
       }
 
