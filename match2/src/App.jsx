@@ -3,6 +3,7 @@ import {
   COLS,
   ROWS,
   SCORE_PER_MATCH,
+  TILE_TYPES,
   countRemainingTiles,
   createBoard,
   isBoardCleared,
@@ -160,6 +161,14 @@ function createLayerRuleTestRoom(language) {
   board[4][4] = [createTile("lower-c", "chick", "🐥")];
 
   return createPreviewBaseRoom(board, createMessage("preview.ruleMessage"), language);
+}
+
+function getChaosIcons(realType) {
+  const shuffled = TILE_TYPES.filter((t) => t.key !== realType)
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 3)
+    .map((t) => t.icon);
+  return [TILE_TYPES.find((t) => t.key === realType).icon, ...shuffled];
 }
 
 function createSocketUrl() {
@@ -473,6 +482,7 @@ function App() {
   const [copiedRoomCode, setCopiedRoomCode] = useState(false);
   const [smokeEffect, setSmokeEffect] = useState(null);
   const [smokeFading, setSmokeFading] = useState(false);
+  const [chaosEffect, setChaosEffect] = useState(null);
   const [dragOverTarget, setDragOverTarget] = useState(null);
   const playerCardRefs = useRef(new Map());
   const previousPlayerPositionsRef = useRef(new Map());
@@ -480,6 +490,7 @@ function App() {
   const lastComboTokenRef = useRef("");
   const lastPlayerComboTokenRef = useRef("");
   const lastSmokeTokenRef = useRef("");
+  const lastChaosTokenRef = useRef("");
   const mySelection = room?.you?.selection;
   const reshuffling = Boolean(room?.reshuffleCountdown);
 
@@ -632,6 +643,26 @@ function App() {
       window.clearTimeout(clearTimer);
     };
   }, [smokeEffect]);
+
+  // Chaos bomb effect: 6s then clear immediately
+  useEffect(() => {
+    const chaosItem = room?.activeItems?.find((item) => item.type === "chaos" && item.target === playerId);
+    if (!chaosItem) return undefined;
+    if (chaosItem.token === lastChaosTokenRef.current) return undefined;
+    lastChaosTokenRef.current = chaosItem.token;
+    setChaosEffect(chaosItem);
+    return undefined;
+  }, [room?.activeItems, playerId]);
+
+  useEffect(() => {
+    if (!chaosEffect) return undefined;
+    const clearTimer = window.setTimeout(() => {
+      setChaosEffect(null);
+    }, 6000);
+    return () => {
+      window.clearTimeout(clearTimer);
+    };
+  }, [chaosEffect]);
 
   const ranking = useMemo(() => sortRanking(room?.players ?? [], previousRankingOrderRef.current), [room?.players]);
   const resultsRanking = useMemo(() => sortRanking(room?.players ?? []), [room?.players]);
@@ -995,6 +1026,9 @@ function App() {
                         if (item === "smoke" && player.id !== playerId) {
                           send("use_smoke_bomb", { targetId: player.id });
                         }
+                        if (item === "chaos" && player.id !== playerId) {
+                          send("use_chaos_bomb", { targetId: player.id });
+                        }
                       }}
                     >
                       <div className="player-avatar">
@@ -1009,8 +1043,8 @@ function App() {
                         <div className="player-meta-row">
                           <span>{player.id === room.hostId ? t("lobby.host") : ""}</span>
                           {room?.activeItems?.filter((item) => item.target === player.id).map((item) => (
-                            <span key={item.token} className="player-active-item" title={item.type === "smoke" ? "烟雾弹" : item.type}>
-                              {item.type === "smoke" ? "😶‍🌫️" : "🎁"}
+                            <span key={item.token} className="player-active-item" title={item.type === "smoke" ? "烟雾弹" : item.type === "chaos" ? t("item.chaos") : item.type}>
+                              {item.type === "smoke" ? "😶‍🌫️" : item.type === "chaos" ? "😵‍💫" : "🎁"}
                             </span>
                           ))}
                         </div>
@@ -1044,6 +1078,26 @@ function App() {
                       title="烟雾弹"
                     >
                       😶‍🌫️
+                    </div>
+                  </div>
+                  <div className="item-slot">
+                    <div
+                      className="item-icon chaos-bomb-icon"
+                      draggable={room?.phase === "game" && !room?.startCountdown && !room?.startReveal && !room?.reshuffleCountdown}
+                      onDragStart={(event) => {
+                        event.dataTransfer.setData("text/item", "chaos");
+                        event.dataTransfer.effectAllowed = "move";
+                      }}
+                      onDoubleClick={() => {
+                        if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
+                        const highestOther = ranking.find((p) => p.id !== playerId);
+                        if (highestOther) {
+                          send("use_chaos_bomb", { targetId: highestOther.id });
+                        }
+                      }}
+                      title={t("item.chaos")}
+                    >
+                      😵‍💫
                     </div>
                   </div>
                 </div>
@@ -1082,13 +1136,27 @@ function App() {
                                         ? "mid-overlay"
                                         : "extra-overlay";
                                   const isTopLayer = layerIndex === normalizedStack.length - 1;
+                                  const isChaosTarget = chaosEffect && isTopLayer;
+                                  const chaosIcons = isChaosTarget ? getChaosIcons(tile.type) : null;
+                                  const chaosDelay = isChaosTarget ? Math.floor(Math.random() * 1000) : 0;
                                   return (
                                     <span
                                       key={tile.id ?? `${rowIndex}-${colIndex}-${layerIndex}`}
                                       className={`${visualClass}${!isTopLayer ? " buried" : ""}${isTopLayer ? " top-layer" : ""}${isTopLayer && isSelected ? " selected" : ""}`}
                                       style={{ zIndex: isTopLayer && isSelected ? 999 : layerIndex + 1 }}
                                     >
-                                      <span className="suit-icon">{tile.icon ?? "?"}</span>
+                                      <span
+                                        className={`suit-icon${chaosIcons ? " chaos-cycling" : ""}`}
+                                        style={chaosIcons ? { "--chaos-start": `${chaosDelay}ms` } : undefined}
+                                      >
+                                        {chaosIcons ? (
+                                          chaosIcons.map((icon, idx) => (
+                                            <span key={idx} className="chaos-icon">{icon}</span>
+                                          ))
+                                        ) : (
+                                          tile.icon ?? "?"
+                                        )}
+                                      </span>
                                     </span>
                                   );
                                 })}
@@ -1239,6 +1307,19 @@ function App() {
                 }}
               >
                 😶‍🌫️
+              </button>
+            )}
+
+            {isTestMode() && room.phase === "game" && (
+              <button
+                className="chaos-test-btn"
+                type="button"
+                title="测试混乱"
+                onClick={() => {
+                  setChaosEffect({ token: `test:${Date.now()}` });
+                }}
+              >
+                😵‍💫
               </button>
             )}
           </section>

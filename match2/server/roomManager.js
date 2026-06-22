@@ -238,6 +238,26 @@ export function getRoomBySocket(socketId) {
   return code ? rooms.get(code) : null;
 }
 
+export function useChaosBomb(socketId, targetId) {
+  const room = getRoomBySocket(socketId);
+  if (!room) return { error: createMessage("error.notInRoom") };
+  if (room.phase !== "game") return { error: createMessage("error.notGamePhase") };
+  if (socketId === targetId) return { error: createMessage("error.cannotTargetSelf") };
+  if (!room.players.some((player) => player.id === targetId)) {
+    return { error: createMessage("error.playerNotInRoom") };
+  }
+  const now = Date.now();
+  const token = `chaos:${socketId}:${now}`;
+  const item = { type: "chaos", by: socketId, target: targetId, token, expiresAt: now + 6000 };
+  const hasActive = room.activeItems.some((active) => active.type === "chaos" && active.target === targetId);
+  if (hasActive) {
+    room.itemQueue.push(item);
+  } else {
+    room.activeItems.push(item);
+  }
+  return { room, by: socketId, target: targetId, token, queued: hasActive };
+}
+
 export function useSmokeBomb(socketId, targetId) {
   const room = getRoomBySocket(socketId);
   if (!room) return { error: createMessage("error.notInRoom") };

@@ -15,6 +15,7 @@ import {
   scheduleGameStart,
   startGame,
   updateAvatar,
+  useChaosBomb,
   useSmokeBomb
 } from "./roomManager.js";
 
@@ -115,6 +116,34 @@ wss.on("connection", (socket) => {
         const result = handleSelection(socketId, payload, sockets);
         if (result.error) return send(socket, "error", { message: result.error });
         return broadcastAfterAction(result.room, sockets);
+      }
+
+      if (type === "use_chaos_bomb") {
+        const result = useChaosBomb(socketId, payload?.targetId);
+        if (result.error) return send(socket, "error", { message: result.error });
+        broadcastAfterAction(result.room, sockets);
+        setTimeout(() => {
+          const liveRoom = getRoomBySocket(socketId);
+          if (!liveRoom || !liveRoom.activeItems) return;
+          const before = liveRoom.activeItems.length;
+          const now = Date.now();
+          liveRoom.activeItems = liveRoom.activeItems.filter((item) => item.expiresAt > now);
+          const changed = liveRoom.activeItems.length !== before;
+          const expiredTargets = [];
+          for (let i = liveRoom.itemQueue.length - 1; i >= 0; i--) {
+            const q = liveRoom.itemQueue[i];
+            const stillActive = liveRoom.activeItems.some((a) => a.type === q.type && a.target === q.target);
+            if (!stillActive && !expiredTargets.some((t) => t.type === q.type && t.target === q.target)) {
+              liveRoom.activeItems.push(q);
+              expiredTargets.push({ type: q.type, target: q.target });
+              liveRoom.itemQueue.splice(i, 1);
+            }
+          }
+          if (changed || expiredTargets.length > 0) {
+            broadcastAfterAction(liveRoom, sockets);
+          }
+        }, 6000);
+        return;
       }
 
       if (type === "use_smoke_bomb") {

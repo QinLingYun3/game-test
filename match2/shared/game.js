@@ -73,7 +73,7 @@ export function reloadLevelConfig(levelIndex = ACTIVE_LEVEL_INDEX) {
 function createMessage(key, params = {}) {
   return { key, params };
 }
-const TILE_TYPES = [
+export const TILE_TYPES = [
   { key: "cat", icon: "🐱" },
   { key: "dog", icon: "🐶" },
   { key: "fox", icon: "🦊" },

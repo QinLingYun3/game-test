@@ -91,7 +91,10 @@ const translations = {
     "error.tileMissing": "目标牌不存在",
     "error.sameTile": "不能选择同一张牌",
     "error.patternMismatch": "图案不一致",
-    "error.noRoute": "当前无法连通"
+    "error.noRoute": "当前无法连通",
+    "error.cannotTargetSelf": "不能对自己使用",
+    "error.playerNotInRoom": "目标玩家不在房间中",
+    "item.chaos": "混乱"
   },
   en: {
     "language.label": "Language",
@@ -181,7 +184,10 @@ const translations = {
     "error.tileMissing": "One of the tiles no longer exists",
     "error.sameTile": "You cannot select the same tile twice",
     "error.patternMismatch": "The icons do not match",
-    "error.noRoute": "No valid route is available"
+    "error.noRoute": "No valid route is available",
+    "error.cannotTargetSelf": "Cannot use on yourself",
+    "error.playerNotInRoom": "Target player not in room",
+    "item.chaos": "Chaos"
   },
   fr: {
     "language.label": "Langue",
@@ -271,7 +277,10 @@ const translations = {
     "error.tileMissing": "L'une des tuiles n'existe plus",
     "error.sameTile": "Vous ne pouvez pas selectionner deux fois la meme tuile",
     "error.patternMismatch": "Les icones ne correspondent pas",
-    "error.noRoute": "Aucun chemin valide disponible"
+    "error.noRoute": "Aucun chemin valide disponible",
+    "error.cannotTargetSelf": "Impossible de s'auto-cibler",
+    "error.playerNotInRoom": "Joueur cible introuvable",
+    "item.chaos": "Chaos"
   }
 };
 
