@@ -19,6 +19,7 @@ const reshuffleIntervals = new Map();
 const startCountdownIntervals = new Map();
 const startRevealTimeouts = new Map();
 const feverTimers = new Map();
+const itemSelectionTimers = new Map();
 const COMBO_WINDOW_MS = 2000;
 const MAX_PLAYERS = 4;
 
@@ -52,6 +53,14 @@ function clearFeverTimer(roomCode) {
   if (id) {
     clearTimeout(id);
     feverTimers.delete(roomCode);
+  }
+}
+
+function clearItemSelectionTimer(roomCode) {
+  const id = itemSelectionTimers.get(roomCode);
+  if (id) {
+    clearInterval(id);
+    itemSelectionTimers.delete(roomCode);
   }
 }
 
@@ -152,6 +161,37 @@ function serializeRoom(room, playerId) {
   const activeItems = (room.activeItems || [])
     .filter((item) => item.expiresAt > now)
     .map(({ type, by, target, token }) => ({ type, by, target, token }));
+
+  if (room.itemSelectionActive) {
+    return {
+      code: room.code,
+      phase: room.phase,
+      hostId: room.hostId,
+      players: room.players,
+      ranking,
+      board: room.board,
+      message: room.message,
+      lastMatch: room.lastMatch,
+      lastCombo: room.lastCombo ?? null,
+      startCountdown: room.startCountdown ?? null,
+      startReveal: room.startReveal ?? false,
+      reshuffleCountdown: room.reshuffleCountdown ?? null,
+      removablePairs: room.board ? countRemovablePairs(room.board) : 0,
+      remainingTiles: room.board ? countRemainingTiles(room.board) : 0,
+      canStart: false,
+      activeItems,
+      fever: room.fever ?? { active: false, startAt: 0, endAt: 0 },
+      itemSelectionActive: true,
+      itemSelectionCountdown: room.itemSelectionCountdown,
+      itemSelections: room.itemSelections ?? {},
+      you: {
+        id: playerId,
+        selection: null,
+        selectedItem: room.itemSelections?.[playerId] ?? null
+      }
+    };
+  }
+
   return {
     code: room.code,
     phase: room.phase,
@@ -170,9 +210,13 @@ function serializeRoom(room, playerId) {
     canStart: room.players.length >= 2 && room.hostId === playerId && room.phase === "lobby",
     activeItems,
     fever: room.fever ?? { active: false, startAt: 0, endAt: 0 },
+    itemSelectionActive: false,
+    itemSelectionCountdown: null,
     you: {
       id: playerId,
-      selection: room.selections.get(playerId) ?? null
+      selection: room.selections.get(playerId) ?? null,
+      selectedItem: room.itemSelections?.[playerId] ?? null,
+      itemCount: room.itemCounts?.[playerId]?.[room.itemSelections?.[playerId]] ?? 0
     }
   };
 }
@@ -194,6 +238,7 @@ function enterLobby(room) {
   clearReshuffleCountdown(room.code);
   clearStartCountdown(room.code);
   clearFeverTimer(room.code);
+  clearItemSelectionTimer(room.code);
   room.phase = "lobby";
   room.board = null;
   room.selections = new Map();
@@ -208,6 +253,10 @@ function enterLobby(room) {
   room.fever = { active: false, startAt: 0, endAt: 0 };
   room.feverEverTriggered = false;
   room.initialTileCount = 0;
+  room.itemSelectionActive = false;
+  room.itemSelectionCountdown = null;
+  room.itemSelections = {};
+  room.itemCounts = {};
   room.message = room.players.length < 2 ? createMessage("server.waitingForPlayer") : createMessage("server.hostCanStart");
   room.players = resetScores(room.players);
 }
@@ -274,6 +323,10 @@ export function createRoom({ socketId, nickname, avatarSeed }) {
     fever: { active: false, startAt: 0, endAt: 0 },
     feverEverTriggered: false,
     initialTileCount: 0,
+    itemSelectionActive: false,
+    itemSelectionCountdown: null,
+    itemSelections: {},
+    itemCounts: {},
     message: createMessage("server.waitingForPlayer")
   };
 
@@ -317,6 +370,12 @@ export function useChaosBomb(socketId, targetId) {
   if (!room) return { error: createMessage("error.notInRoom") };
   if (room.phase !== "game") return { error: createMessage("error.notGamePhase") };
   if (room.fever?.active) return { error: createMessage("error.feverNoItems") };
+  if (room.itemSelections?.[socketId] !== "chaos") {
+    return { error: createMessage("error.itemNotOwned") };
+  }
+  if ((room.itemCounts?.[socketId]?.chaos ?? 0) <= 0) {
+    return { error: createMessage("error.itemNotOwned") };
+  }
   if (socketId === targetId) return { error: createMessage("error.cannotTargetSelf") };
   if (!room.players.some((player) => player.id === targetId)) {
     return { error: createMessage("error.playerNotInRoom") };
@@ -330,6 +389,7 @@ export function useChaosBomb(socketId, targetId) {
   } else {
     room.activeItems.push(item);
   }
+  room.itemCounts[socketId].chaos -= 1;
   return { room, by: socketId, target: targetId, token, queued: hasActive };
 }
 
@@ -338,6 +398,12 @@ export function useSmokeBomb(socketId, targetId) {
   if (!room) return { error: createMessage("error.notInRoom") };
   if (room.phase !== "game") return { error: createMessage("error.notGamePhase") };
   if (room.fever?.active) return { error: createMessage("error.feverNoItems") };
+  if (room.itemSelections?.[socketId] !== "smoke") {
+    return { error: createMessage("error.itemNotOwned") };
+  }
+  if ((room.itemCounts?.[socketId]?.smoke ?? 0) <= 0) {
+    return { error: createMessage("error.itemNotOwned") };
+  }
   if (socketId === targetId) return { error: createMessage("error.cannotTargetSelf") };
   if (!room.players.some((player) => player.id === targetId)) {
     return { error: createMessage("error.playerNotInRoom") };
@@ -351,7 +417,106 @@ export function useSmokeBomb(socketId, targetId) {
   } else {
     room.activeItems.push(item);
   }
+  room.itemCounts[socketId].smoke -= 1;
   return { room, by: socketId, target: targetId, token, queued: hasActive };
+}
+
+const DEFAULT_ITEM_COUNTS = {
+  smoke: 1,
+  chaos: 1,
+  quick: 2
+};
+
+function startGameFromSelections(room, sockets) {
+  clearReshuffleCountdown(room.code);
+  room.phase = "game";
+  room.players = resetScores(room.players);
+  room.selections = new Map();
+  room.lastMatch = null;
+  room.lastCombo = null;
+  room.reshuffleCountdown = null;
+  room.startCountdown = 3;
+  room.startReveal = false;
+  room.comboTracker = createComboTracker(room.players);
+  room.fever = { active: false, startAt: 0, endAt: 0 };
+  room.feverEverTriggered = false;
+  room.itemCounts = {};
+  room.players.forEach((p) => {
+    const type = room.itemSelections?.[p.id];
+    if (type) {
+      room.itemCounts[p.id] = { [type]: DEFAULT_ITEM_COUNTS[type] };
+    }
+  });
+  reloadLevelConfig();
+  room.board = createBoard();
+  room.initialTileCount = countRemainingTiles(room.board);
+  room.message = createMessage("server.gameStarting", { count: 3 });
+  broadcastRoom(room, sockets);
+  scheduleGameStart(room, sockets);
+}
+
+export function startItemSelection(socketId, sockets) {
+  const room = getRoomBySocket(socketId);
+  if (!room) return { error: createMessage("error.notInRoom") };
+  if (room.hostId !== socketId) return { error: createMessage("error.onlyHostCanStart") };
+  if (room.players.length < 2) return { error: createMessage("error.needTwoPlayers") };
+
+  clearItemSelectionTimer(room.code);
+  room.itemSelectionActive = true;
+  room.itemSelectionCountdown = 20;
+  room.itemSelections = {};
+  room.message = createMessage("server.itemSelection");
+  broadcastRoom(room, sockets);
+
+  const intervalId = setInterval(() => {
+    const liveRoom = rooms.get(room.code);
+    if (!liveRoom || !liveRoom.itemSelectionActive) {
+      clearItemSelectionTimer(room.code);
+      return;
+    }
+
+    liveRoom.itemSelectionCountdown -= 1;
+    if (liveRoom.itemSelectionCountdown > 0) {
+      liveRoom.message = createMessage("server.itemSelectionCountdown", { count: liveRoom.itemSelectionCountdown });
+      broadcastRoom(liveRoom, sockets);
+
+      // 全选提前结束
+      const allSelected = liveRoom.players.every((p) => liveRoom.itemSelections[p.id] != null);
+      if (allSelected) {
+        clearItemSelectionTimer(liveRoom.code);
+        liveRoom.itemSelectionActive = false;
+        liveRoom.itemSelectionCountdown = null;
+        startGameFromSelections(liveRoom, sockets);
+      }
+      return;
+    }
+
+    // 倒计时结束
+    clearInterval(intervalId);
+    itemSelectionTimers.delete(room.code);
+    liveRoom.itemSelectionActive = false;
+    liveRoom.itemSelectionCountdown = null;
+    liveRoom.players.forEach((p) => {
+      if (!(p.id in liveRoom.itemSelections)) {
+        liveRoom.itemSelections[p.id] = null;
+      }
+    });
+    startGameFromSelections(liveRoom, sockets);
+  }, 1000);
+
+  itemSelectionTimers.set(room.code, intervalId);
+  return { room };
+}
+
+export function selectItem(socketId, itemType) {
+  const room = getRoomBySocket(socketId);
+  if (!room) return { error: createMessage("error.notInRoom") };
+  if (!room.itemSelectionActive) return { error: createMessage("error.itemSelectionEnded") };
+  if (!["smoke", "chaos", "quick"].includes(itemType)) {
+    return { error: createMessage("error.invalidItem") };
+  }
+  room.itemSelections[socketId] = itemType;
+  return { room };
 }
 
 export function startGame(socketId) {
@@ -542,6 +707,12 @@ export function handleQuickMatch(socketId, sockets) {
   if (!room) return { error: createMessage("error.roomNotFound") };
   if (room.phase !== "game") return { error: createMessage("error.notGamePhase") };
   if (room.fever?.active) return { error: createMessage("error.feverNoItems") };
+  if (room.itemSelections?.[socketId] !== "quick") {
+    return { error: createMessage("error.itemNotOwned") };
+  }
+  if ((room.itemCounts?.[socketId]?.quick ?? 0) <= 0) {
+    return { error: createMessage("error.itemNotOwned") };
+  }
   if (room.startCountdown != null || room.startReveal) return { error: createMessage("error.waitForCountdown") };
   if (room.reshuffleCountdown) return { error: createMessage("error.waitForReshuffle") };
   if (countRemovablePairs(room.board) === 0) return { error: createMessage("error.noRemovablePairs") };
@@ -575,6 +746,7 @@ export function handleQuickMatch(socketId, sockets) {
       ? { ...player, score: player.score + SCORE_PER_MATCH }
       : player
   );
+  room.itemCounts[socketId].quick -= 1;
   room.message = createMessage("server.quickMatchUsed", {
     nickname: room.players.find((player) => player.id === socketId)?.nickname ?? ""
   });
@@ -608,10 +780,24 @@ export function leaveRoom(socketId) {
   if (room.itemQueue) {
     room.itemQueue = room.itemQueue.filter((item) => item.by !== socketId && item.target !== socketId);
   }
+  if (room.itemSelections) {
+    delete room.itemSelections[socketId];
+  }
+  if (room.itemCounts) {
+    delete room.itemCounts[socketId];
+  }
 
   if (room.players.length === 0) {
+    clearItemSelectionTimer(room.code);
     rooms.delete(room.code);
     return null;
+  }
+
+  if (room.itemSelectionActive && room.players.length <= 1) {
+    clearItemSelectionTimer(room.code);
+    enterLobby(room);
+    room.message = createMessage("server.playerLeft");
+    return room;
   }
 
   if (room.hostId === socketId) {

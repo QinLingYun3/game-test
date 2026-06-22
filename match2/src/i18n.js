@@ -105,7 +105,16 @@ const translations = {
     "game.feverTime": "🔥 FEVER TIME！得分加倍，点错扣分！",
     "server.feverMatchScored": "{{nickname}} FEVER消除！+{{score}}",
     "server.feverPenalty": "{{nickname}} FEVER点错！-100",
-    "error.feverNoItems": "FEVER TIME期间禁止使用道具"
+    "error.feverNoItems": "FEVER TIME期间禁止使用道具",
+    "item.smoke": "烟雾弹",
+    "game.itemSelectTitle": "选择你的道具",
+    "game.itemSelectSubtitle": "倒计时结束后未选择将无道具",
+    "game.noItem": "未选择道具",
+    "server.itemSelection": "正在选择道具...",
+    "server.itemSelectionCountdown": "选择道具倒计时 {{count}} 秒",
+    "error.itemSelectionEnded": "道具选择已结束",
+    "error.invalidItem": "无效的道具",
+    "error.itemNotOwned": "你未选择此道具"
   },
   en: {
     "language.label": "Language",
@@ -209,7 +218,16 @@ const translations = {
     "game.feverTime": "🔥 FEVER TIME! Double score, penalty for wrong click!",
     "server.feverMatchScored": "{{nickname}} FEVER match! +{{score}}",
     "server.feverPenalty": "{{nickname}} FEVER penalty! -100",
-    "error.feverNoItems": "Items are disabled during FEVER TIME"
+    "error.feverNoItems": "Items are disabled during FEVER TIME",
+    "item.smoke": "Smoke Bomb",
+    "game.itemSelectTitle": "Choose Your Item",
+    "game.itemSelectSubtitle": "No item if time runs out",
+    "game.noItem": "No item selected",
+    "server.itemSelection": "Choosing items...",
+    "server.itemSelectionCountdown": "Item selection ends in {{count}}s",
+    "error.itemSelectionEnded": "Item selection has ended",
+    "error.invalidItem": "Invalid item",
+    "error.itemNotOwned": "You do not own this item"
   },
   fr: {
     "language.label": "Langue",
@@ -313,7 +331,16 @@ const translations = {
     "game.feverTime": "🔥 FEVER TIME ! Double score, pénalité pour mauvais clic !",
     "server.feverMatchScored": "{{nickname}} FEVER match ! +{{score}}",
     "server.feverPenalty": "{{nickname}} FEVER penalty ! -100",
-    "error.feverNoItems": "Les objets sont desactives pendant FEVER TIME"
+    "error.feverNoItems": "Les objets sont desactives pendant FEVER TIME",
+    "item.smoke": "Bombe fumigene",
+    "game.itemSelectTitle": "Choisissez votre objet",
+    "game.itemSelectSubtitle": "Pas d'objet si le temps s'ecoule",
+    "game.noItem": "Aucun objet selectionne",
+    "server.itemSelection": "Choix des objets...",
+    "server.itemSelectionCountdown": "Choix se termine dans {{count}}s",
+    "error.itemSelectionEnded": "Le choix est termine",
+    "error.invalidItem": "Objet invalide",
+    "error.itemNotOwned": "Vous n'avez pas cet objet"
   }
 };
 

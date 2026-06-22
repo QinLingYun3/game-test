@@ -14,7 +14,9 @@ import {
   leaveRoom,
   replay,
   scheduleGameStart,
+  selectItem,
   startGame,
+  startItemSelection,
   triggerFeverNow,
   updateAvatar,
   useChaosBomb,
@@ -107,11 +109,15 @@ wss.on("connection", (socket) => {
       }
 
       if (type === "start_game") {
-        const result = startGame(socketId);
+        const result = startItemSelection(socketId, sockets);
         if (result.error) return send(socket, "error", { message: result.error });
-        broadcastAfterAction(result.room, sockets);
-        scheduleGameStart(result.room, sockets);
         return;
+      }
+
+      if (type === "select_item") {
+        const result = selectItem(socketId, payload?.itemType);
+        if (result.error) return send(socket, "error", { message: result.error });
+        return broadcastAfterAction(result.room, sockets);
       }
 
       if (type === "select_tile") {

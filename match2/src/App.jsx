@@ -242,6 +242,60 @@ function FeverDisplay({ active, t }) {
   );
 }
 
+function ItemSelectionOverlay({ countdown, playerItems, selectedItem, onSelect, t }) {
+  const items = [
+    { type: "smoke", icon: "😶‍🌫️", label: t("item.smoke"), desc: t("item.smokeDesc") },
+    { type: "chaos", icon: "😵‍💫", label: t("item.chaos"), desc: t("item.chaosDesc") },
+    { type: "quick", icon: "⚡️", label: t("item.quickMatch"), desc: t("item.quickMatchDesc") }
+  ];
+
+  const total = 20;
+  const circumference = 2 * Math.PI * 45;
+  const offset = circumference - (countdown / total) * circumference;
+
+  return (
+    <div className="item-selection-overlay">
+      <div className="item-selection-panel">
+        <h2 className="item-selection-title">{t("game.itemSelectTitle")}</h2>
+        <p className="item-selection-subtitle">{t("game.itemSelectSubtitle")}</p>
+        <div className="item-selection-grid">
+          {items.map((item) => (
+            <button
+              key={item.type}
+              className={`item-selection-card${selectedItem === item.type ? " selected" : ""}`}
+              onClick={() => onSelect(item.type)}
+              type="button"
+            >
+              <span className="item-selection-icon">{item.icon}</span>
+              <span className="item-selection-name">{item.label}</span>
+              <span className="item-selection-desc">{item.desc}</span>
+            </button>
+          ))}
+        </div>
+        <div className="item-selection-timer">
+          <svg viewBox="0 0 100 100" className="timer-svg">
+            <circle className="timer-track" cx="50" cy="50" r="45" />
+            <circle
+              className="timer-progress"
+              cx="50" cy="50" r="45"
+              strokeDasharray={circumference}
+              strokeDashoffset={offset}
+            />
+          </svg>
+          <span className="timer-number">{countdown}</span>
+        </div>
+        <div className="item-selection-players">
+          {Object.entries(playerItems).map(([id, type]) => (
+            <span key={id} className={`item-selection-status${type ? " ready" : ""}`}>
+              {type ? "✅" : "⏳"}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function createSocketUrl() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const port = window.location.port === "5173" ? "3001" : window.location.port;
@@ -1055,6 +1109,16 @@ function App() {
           </section>
         )}
 
+        {room?.itemSelectionActive && (
+          <ItemSelectionOverlay
+            countdown={room.itemSelectionCountdown}
+            playerItems={room.itemSelections ?? {}}
+            selectedItem={room.you?.selectedItem}
+            onSelect={(type) => send("select_item", { itemType: type })}
+            t={t}
+          />
+        )}
+
         {room && room.phase === "game" && (
           <section className="panel game-panel">
             <div className="game-topbar">
@@ -1135,73 +1199,85 @@ function App() {
 
               <aside className="items-panel">
                 <div className="items-column">
-                  <div className="item-slot">
-                    <div className="item-tooltip">
-                      <div
-                        className={`item-icon smoke-bomb-icon${(room?.fever?.active || feverEffect?.active) ? " disabled" : ""}`}
-                        draggable={room?.phase === "game" && !room?.startCountdown && !room?.startReveal && !room?.reshuffleCountdown && !room?.fever?.active && !feverEffect?.active}
-                        onDragStart={(event) => {
-                          event.dataTransfer.setData("text/item", "smoke");
-                          event.dataTransfer.effectAllowed = "move";
-                        }}
-                        onDoubleClick={() => {
-                          if (room?.fever?.active || feverEffect?.active) return;
-                          if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
-                          const highestOther = ranking.find((p) => p.id !== playerId);
-                          if (highestOther) {
-                            send("use_smoke_bomb", { targetId: highestOther.id });
-                          }
-                        }}
-                      >
-                        😶‍🌫️
-                      </div>
-                      <div className="item-tooltip-bubble">
-                        {t("item.smokeDesc")}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="item-slot">
-                    <div className="item-tooltip">
-                      <div
-                        className={`item-icon chaos-bomb-icon${(room?.fever?.active || feverEffect?.active) ? " disabled" : ""}`}
-                        draggable={room?.phase === "game" && !room?.startCountdown && !room?.startReveal && !room?.reshuffleCountdown && !room?.fever?.active && !feverEffect?.active}
-                        onDragStart={(event) => {
-                          event.dataTransfer.setData("text/item", "chaos");
-                          event.dataTransfer.effectAllowed = "move";
-                        }}
-                        onDoubleClick={() => {
-                          if (room?.fever?.active || feverEffect?.active) return;
-                          if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
-                          const highestOther = ranking.find((p) => p.id !== playerId);
-                          if (highestOther) {
-                            send("use_chaos_bomb", { targetId: highestOther.id });
-                          }
-                        }}
-                      >
-                        😵‍💫
-                      </div>
-                      <div className="item-tooltip-bubble">
-                        {t("item.chaosDesc")}
+                  {room?.you?.selectedItem === "smoke" && (room?.you?.itemCount ?? 0) > 0 && (
+                    <div className="item-slot">
+                      <div className="item-tooltip">
+                        <div
+                          className={`item-icon smoke-bomb-icon${(room?.fever?.active || feverEffect?.active) ? " disabled" : ""}`}
+                          draggable={room?.phase === "game" && !room?.startCountdown && !room?.startReveal && !room?.reshuffleCountdown && !room?.fever?.active && !feverEffect?.active}
+                          onDragStart={(event) => {
+                            event.dataTransfer.setData("text/item", "smoke");
+                            event.dataTransfer.effectAllowed = "move";
+                          }}
+                          onDoubleClick={() => {
+                            if (room?.fever?.active || feverEffect?.active) return;
+                            if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
+                            const highestOther = ranking.find((p) => p.id !== playerId);
+                            if (highestOther) {
+                              send("use_smoke_bomb", { targetId: highestOther.id });
+                            }
+                          }}
+                        >
+                          😶‍🌫️
+                          <span className="item-count-badge">{room?.you?.itemCount ?? 0}</span>
+                        </div>
+                        <div className="item-tooltip-bubble">
+                          {t("item.smokeDesc")}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="item-slot">
-                    <div className="item-tooltip">
-                      <div
-                        className={`item-icon quick-match-icon${(room?.removablePairs ?? 0) === 0 || room?.fever?.active || feverEffect?.active ? " disabled" : ""}`}
-                        onDoubleClick={() => {
-                          if ((room?.removablePairs ?? 0) === 0 || room?.fever?.active || feverEffect?.active) return;
-                          if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
-                          send("use_quick_match");
-                        }}
-                      >
-                        ⚡️
-                      </div>
-                      <div className="item-tooltip-bubble">
-                        {t("item.quickMatchDesc")}
+                  )}
+                  {room?.you?.selectedItem === "chaos" && (room?.you?.itemCount ?? 0) > 0 && (
+                    <div className="item-slot">
+                      <div className="item-tooltip">
+                        <div
+                          className={`item-icon chaos-bomb-icon${(room?.fever?.active || feverEffect?.active) ? " disabled" : ""}`}
+                          draggable={room?.phase === "game" && !room?.startCountdown && !room?.startReveal && !room?.reshuffleCountdown && !room?.fever?.active && !feverEffect?.active}
+                          onDragStart={(event) => {
+                            event.dataTransfer.setData("text/item", "chaos");
+                            event.dataTransfer.effectAllowed = "move";
+                          }}
+                          onDoubleClick={() => {
+                            if (room?.fever?.active || feverEffect?.active) return;
+                            if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
+                            const highestOther = ranking.find((p) => p.id !== playerId);
+                            if (highestOther) {
+                              send("use_chaos_bomb", { targetId: highestOther.id });
+                            }
+                          }}
+                        >
+                          😵‍💫
+                          <span className="item-count-badge">{room?.you?.itemCount ?? 0}</span>
+                        </div>
+                        <div className="item-tooltip-bubble">
+                          {t("item.chaosDesc")}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
+                  {room?.you?.selectedItem === "quick" && (room?.you?.itemCount ?? 0) > 0 && (
+                    <div className="item-slot">
+                      <div className="item-tooltip">
+                        <div
+                          className={`item-icon quick-match-icon${(room?.removablePairs ?? 0) === 0 || room?.fever?.active || feverEffect?.active ? " disabled" : ""}`}
+                          onDoubleClick={() => {
+                            if ((room?.removablePairs ?? 0) === 0 || room?.fever?.active || feverEffect?.active) return;
+                            if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
+                            send("use_quick_match");
+                          }}
+                        >
+                          ⚡️
+                          <span className="item-count-badge">{room?.you?.itemCount ?? 0}</span>
+                        </div>
+                        <div className="item-tooltip-bubble">
+                          {t("item.quickMatchDesc")}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {((room?.you?.selectedItem == null) || ((room?.you?.itemCount ?? 0) <= 0)) && (
+                    <div className="item-slot item-empty" />
+                  )}
                 </div>
               </aside>
 
