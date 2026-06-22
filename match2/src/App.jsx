@@ -964,7 +964,7 @@ function App() {
                     )}
                   </div>
                   <div className="player-chip-meta">
-                    <strong>{player.nickname}</strong>
+                    <strong>{player.nickname}{player.id === playerId ? `（${t("you")}）` : ""}</strong>
                     <span>{player.id === room.hostId ? t("lobby.host") : t("lobby.player")}</span>
                   </div>
                 </article>
@@ -1031,7 +1031,7 @@ function App() {
                         }
                       }}
                     >
-                      <div className="player-avatar">
+                      <div className={`player-avatar${player.id === playerId ? " mine" : ""}`}>
                         {player.avatarSeed ? (
                           <img className="avatar-image" src={getAvatarUrl(player.avatarSeed)} alt={player.nickname} />
                         ) : (
@@ -1039,9 +1039,8 @@ function App() {
                         )}
                       </div>
                       <div className="player-meta">
-                        <strong>{player.nickname}</strong>
+                        <strong>{player.nickname}{player.id === playerId ? `（${t("you")}）` : ""}</strong>
                         <div className="player-meta-row">
-                          <span>{player.id === room.hostId ? t("lobby.host") : ""}</span>
                           {room?.activeItems?.filter((item) => item.target === player.id).map((item) => (
                             <span key={item.token} className="player-active-item" title={item.type === "smoke" ? "烟雾弹" : item.type === "chaos" ? t("item.chaos") : item.type}>
                               {item.type === "smoke" ? "😶‍🌫️" : item.type === "chaos" ? "😵‍💫" : "🎁"}
@@ -1061,43 +1060,68 @@ function App() {
               <aside className="items-panel">
                 <div className="items-column">
                   <div className="item-slot">
-                    <div
-                      className="item-icon smoke-bomb-icon"
-                      draggable={room?.phase === "game" && !room?.startCountdown && !room?.startReveal && !room?.reshuffleCountdown}
-                      onDragStart={(event) => {
-                        event.dataTransfer.setData("text/item", "smoke");
-                        event.dataTransfer.effectAllowed = "move";
-                      }}
-                      onDoubleClick={() => {
-                        if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
-                        const highestOther = ranking.find((p) => p.id !== playerId);
-                        if (highestOther) {
-                          send("use_smoke_bomb", { targetId: highestOther.id });
-                        }
-                      }}
-                      title="烟雾弹"
-                    >
-                      😶‍🌫️
+                    <div className="item-tooltip">
+                      <div
+                        className="item-icon smoke-bomb-icon"
+                        draggable={room?.phase === "game" && !room?.startCountdown && !room?.startReveal && !room?.reshuffleCountdown}
+                        onDragStart={(event) => {
+                          event.dataTransfer.setData("text/item", "smoke");
+                          event.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDoubleClick={() => {
+                          if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
+                          const highestOther = ranking.find((p) => p.id !== playerId);
+                          if (highestOther) {
+                            send("use_smoke_bomb", { targetId: highestOther.id });
+                          }
+                        }}
+                      >
+                        😶‍🌫️
+                      </div>
+                      <div className="item-tooltip-bubble">
+                        {t("item.smokeDesc")}
+                      </div>
                     </div>
                   </div>
                   <div className="item-slot">
-                    <div
-                      className="item-icon chaos-bomb-icon"
-                      draggable={room?.phase === "game" && !room?.startCountdown && !room?.startReveal && !room?.reshuffleCountdown}
-                      onDragStart={(event) => {
-                        event.dataTransfer.setData("text/item", "chaos");
-                        event.dataTransfer.effectAllowed = "move";
-                      }}
-                      onDoubleClick={() => {
-                        if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
-                        const highestOther = ranking.find((p) => p.id !== playerId);
-                        if (highestOther) {
-                          send("use_chaos_bomb", { targetId: highestOther.id });
-                        }
-                      }}
-                      title={t("item.chaos")}
-                    >
-                      😵‍💫
+                    <div className="item-tooltip">
+                      <div
+                        className="item-icon chaos-bomb-icon"
+                        draggable={room?.phase === "game" && !room?.startCountdown && !room?.startReveal && !room?.reshuffleCountdown}
+                        onDragStart={(event) => {
+                          event.dataTransfer.setData("text/item", "chaos");
+                          event.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDoubleClick={() => {
+                          if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
+                          const highestOther = ranking.find((p) => p.id !== playerId);
+                          if (highestOther) {
+                            send("use_chaos_bomb", { targetId: highestOther.id });
+                          }
+                        }}
+                      >
+                        😵‍💫
+                      </div>
+                      <div className="item-tooltip-bubble">
+                        {t("item.chaosDesc")}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="item-slot">
+                    <div className="item-tooltip">
+                      <div
+                        className={`item-icon quick-match-icon${(room?.removablePairs ?? 0) === 0 ? " disabled" : ""}`}
+                        onDoubleClick={() => {
+                          if ((room?.removablePairs ?? 0) === 0) return;
+                          if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
+                          send("use_quick_match");
+                        }}
+                      >
+                        ⚡️
+                      </div>
+                      <div className="item-tooltip-bubble">
+                        {t("item.quickMatchDesc")}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1357,7 +1381,7 @@ function App() {
                       <span className={`rank-badge rank-${rank}`}>#{rank}</span>
                       <img className="avatar-image results-avatar" src={getAvatarUrl(player.avatarSeed)} alt={player.nickname} />
                       <div className="rank-card-meta">
-                        <strong>{player.nickname}</strong>
+                        <strong>{player.nickname}{player.id === playerId ? `（${t("you")}）` : ""}</strong>
                         {player.id === room.hostId && <span>{t("lobby.host")}</span>}
                         </div>
                       </div>

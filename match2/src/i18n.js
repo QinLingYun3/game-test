@@ -33,6 +33,7 @@ const translations = {
     "lobby.player": "玩家",
     "lobby.waiting": "等待加入",
     "lobby.start": "开始游戏",
+    "you": "你",
     "game.roomCodeMoves": "房号 {{code}} 可消除：{{count}}",
     "game.heroPill": "双人连连看 ⭐️ 房号 {{code}}",
     "game.countPill": "可消除：{{count}}",
@@ -94,7 +95,13 @@ const translations = {
     "error.noRoute": "当前无法连通",
     "error.cannotTargetSelf": "不能对自己使用",
     "error.playerNotInRoom": "目标玩家不在房间中",
-    "item.chaos": "混乱"
+    "error.noRemovablePairs": "当前无可消除的牌",
+    "item.chaos": "混乱",
+    "item.quickMatch": "快速消除",
+    "server.quickMatchUsed": "{{nickname}} 使用快速消除成功",
+    "item.smokeDesc": "烟雾弹：给目标玩家投放一颗烟雾弹，使其看不清牌面。持续时间6秒。",
+    "item.chaosDesc": "混乱：目标玩家的牌面图案会被打乱。持续时间6秒。",
+    "item.quickMatchDesc": "快速消除：双击立即消除一对 tile。"
   },
   en: {
     "language.label": "Language",
@@ -126,6 +133,7 @@ const translations = {
     "lobby.player": "Player",
     "lobby.waiting": "Waiting for player",
     "lobby.start": "Start Game",
+    "you": "You",
     "game.roomCodeMoves": "Room {{code}} Removable: {{count}}",
     "game.heroPill": "Two-Player Match ⭐️ Room {{code}}",
     "game.countPill": "Removable: {{count}}",
@@ -187,7 +195,13 @@ const translations = {
     "error.noRoute": "No valid route is available",
     "error.cannotTargetSelf": "Cannot use on yourself",
     "error.playerNotInRoom": "Target player not in room",
-    "item.chaos": "Chaos"
+    "error.noRemovablePairs": "No removable pairs left",
+    "item.chaos": "Chaos",
+    "item.quickMatch": "Quick Match",
+    "server.quickMatchUsed": "{{nickname}} used Quick Match",
+    "item.smokeDesc": "Smoke Bomb: cast on an opponent to blind their board for 6 seconds.",
+    "item.chaosDesc": "Chaos: scramble tile icons on an opponent's board for 6 seconds.",
+    "item.quickMatchDesc": "Quick Match: double-click to remove one pair instantly."
   },
   fr: {
     "language.label": "Langue",
@@ -219,6 +233,7 @@ const translations = {
     "lobby.player": "Joueur",
     "lobby.waiting": "En attente d'un joueur",
     "lobby.start": "Demarrer",
+    "you": "Vous",
     "game.roomCodeMoves": "Salle {{code}} Paires restantes: {{count}}",
     "game.heroPill": "Jeu a Deux ⭐️ Salle {{code}}",
     "game.countPill": "Paires restantes : {{count}}",
@@ -280,7 +295,13 @@ const translations = {
     "error.noRoute": "Aucun chemin valide disponible",
     "error.cannotTargetSelf": "Impossible de s'auto-cibler",
     "error.playerNotInRoom": "Joueur cible introuvable",
-    "item.chaos": "Chaos"
+    "error.noRemovablePairs": "Aucune paire removable",
+    "item.chaos": "Chaos",
+    "item.quickMatch": "Coup rapide",
+    "server.quickMatchUsed": "{{nickname}} a utilise Coup rapide",
+    "item.smokeDesc": "Bombe fumigene : lance sur un adversaire pour obscurcir son plateau pendant 6 secondes.",
+    "item.chaosDesc": "Chaos : melange les icones du plateau adverse pendant 6 secondes.",
+    "item.quickMatchDesc": "Coup rapide : double-clic pour eliminer une paire instantanement."
   }
 };
 

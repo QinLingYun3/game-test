@@ -776,7 +776,7 @@ button {
 .items-column {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 0px;
   min-width: 250px;
 }
 
@@ -784,7 +784,7 @@ button {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 12px;
+  padding: 8px;
 }
 
 .item-icon {
@@ -812,11 +812,64 @@ button {
 }
 
 .smoke-bomb-icon:hover,
-.chaos-bomb-icon:hover {
+.chaos-bomb-icon:hover,
+.quick-match-icon:not(.disabled):hover {
   box-shadow:
     0 0 25px rgba(255, 160, 80, 0.4),
     inset 0 0 15px rgba(255, 120, 60, 0.2);
   border-color: rgba(255, 180, 100, 0.5);
+}
+
+.quick-match-icon.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* 道具 hover 气泡提示 */
+.item-tooltip {
+  position: relative;
+  display: inline-flex;
+}
+
+.item-tooltip-bubble {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  z-index: 50;
+  width: max-content;
+  max-width: 260px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(24, 28, 36, 0.92);
+  border: 1px solid rgba(160, 180, 200, 0.2);
+  color: #f0f4f8;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* 小箭头 */
+.item-tooltip-bubble::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: rgba(24, 28, 36, 0.92) transparent transparent transparent;
+}
+
+.item-tooltip:hover .item-tooltip-bubble {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .players-column {
@@ -827,10 +880,10 @@ button {
 
 .player-card {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) auto;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 14px;
-  padding: 18px 14px;
+  gap: 12px;
+  padding: 14px 12px;
   border-radius: 22px;
   position: relative;
   background:
@@ -845,13 +898,13 @@ button {
 
 .player-card.mine {
   background:
-    radial-gradient(circle at top left, rgba(255, 241, 204, 0.24), transparent 40%),
-    linear-gradient(180deg, rgba(71, 100, 67, 0.96), rgba(34, 61, 44, 0.94));
-  border-color: rgba(240, 212, 138, 0.4);
+    radial-gradient(circle at top left, rgba(255, 200, 210, 0.3), transparent 40%),
+    linear-gradient(135deg, #d86b7a, #c45161, #a83e4c);
+  border-color: rgba(196, 81, 97, 0.65);
   box-shadow:
-    inset 0 0 0 1px rgba(248, 223, 164, 0.18),
-    inset 0 1px 0 rgba(255, 249, 232, 0.12),
-    0 16px 30px rgba(9, 18, 14, 0.24);
+    inset 0 0 0 1px rgba(255, 230, 235, 0.25),
+    inset 0 1px 0 rgba(255, 245, 247, 0.15),
+    0 16px 30px rgba(50, 10, 15, 0.28);
 }
 
 .player-card.drag-highlight {
@@ -868,18 +921,27 @@ button {
 .player-avatar {
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   border-radius: 999px;
-  background: transparent;
+  background: #7593af;
   color: #3a2410;
   font-weight: 800;
-  font-size: 22px;
+  font-size: 20px;
   overflow: hidden;
   border: 2px solid rgba(244, 231, 194, 0.34);
   box-shadow:
     inset 0 0 0 2px rgba(20, 43, 31, 0.12),
     0 8px 16px rgba(0, 0, 0, 0.18);
+}
+
+.player-avatar.mine {
+  background: #7593af;
+  border-color: rgba(196, 81, 97, 0.7);
+  box-shadow:
+    inset 0 0 0 2px rgba(20, 43, 31, 0.12),
+    0 8px 16px rgba(0, 0, 0, 0.18),
+    0 0 12px rgba(196, 81, 97, 0.35);
 }
 
 .avatar-image {
@@ -900,6 +962,7 @@ button {
 .player-meta strong,
 .player-score {
   color: #fff7e4;
+  font-size: 14px;
 }
 
 .player-meta span {

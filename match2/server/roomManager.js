@@ -1,6 +1,7 @@
 import {
   reloadLevelConfig,
   countRemovablePairs,
+  findAnyRemovablePair,
   SCORE_PER_MATCH,
   countRemainingTiles,
   createBoard,
@@ -418,6 +419,58 @@ export function handleSelection(socketId, position, sockets) {
   room.message = createMessage("server.matchScored", {
     nickname: room.players.find((player) => player.id === socketId)?.nickname ?? "",
     score: scoreDelta
+  });
+
+  if (isBoardCleared(room.board) || countRemainingTiles(room.board) === 0) {
+    finishGame(room);
+    return { room };
+  }
+
+  if (!hasAnyMoves(room.board)) {
+    scheduleDeadlockReshuffle(room, sockets);
+  }
+
+  return { room };
+}
+
+export function handleQuickMatch(socketId, sockets) {
+  const room = getRoomBySocket(socketId);
+  if (!room) return { error: createMessage("error.roomNotFound") };
+  if (room.phase !== "game") return { error: createMessage("error.notGamePhase") };
+  if (room.startCountdown != null || room.startReveal) return { error: createMessage("error.waitForCountdown") };
+  if (room.reshuffleCountdown) return { error: createMessage("error.waitForReshuffle") };
+  if (countRemovablePairs(room.board) === 0) return { error: createMessage("error.noRemovablePairs") };
+
+  const match = findAnyRemovablePair(room.board);
+  if (!match) return { error: createMessage("error.noRemovablePairs") };
+
+  const { pair, path, tile, depths } = match;
+  room.board = removePair(room.board, pair[0], pair[1]);
+  room.selections.delete(socketId);
+  const now = Date.now();
+  room.comboTracker.set(socketId, { count: 0, lastClearedAt: 0 });
+
+  room.lastMatch = {
+    by: socketId,
+    pair,
+    path,
+    tile,
+    depths,
+    token: `${socketId}:${now}:match`
+  };
+  room.lastCombo = {
+    by: socketId,
+    count: 1,
+    scoreDelta: SCORE_PER_MATCH,
+    token: `${socketId}:${now}`
+  };
+  room.players = room.players.map((player) =>
+    player.id === socketId
+      ? { ...player, score: player.score + SCORE_PER_MATCH }
+      : player
+  );
+  room.message = createMessage("server.quickMatchUsed", {
+    nickname: room.players.find((player) => player.id === socketId)?.nickname ?? ""
   });
 
   if (isBoardCleared(room.board) || countRemainingTiles(room.board) === 0) {

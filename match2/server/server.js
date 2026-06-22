@@ -8,6 +8,7 @@ import {
   broadcastAfterAction,
   createRoom,
   getRoomBySocket,
+  handleQuickMatch,
   handleSelection,
   joinRoom,
   leaveRoom,
@@ -144,6 +145,12 @@ wss.on("connection", (socket) => {
           }
         }, 6000);
         return;
+      }
+
+      if (type === "use_quick_match") {
+        const result = handleQuickMatch(socketId, sockets);
+        if (result.error) return send(socket, "error", { message: result.error });
+        return broadcastAfterAction(result.room, sockets);
       }
 
       if (type === "use_smoke_bomb") {

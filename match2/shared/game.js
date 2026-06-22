@@ -437,6 +437,42 @@ export function countRemovablePairs(board) {
   return pairCount;
 }
 
+export function findAnyRemovablePair(board) {
+  const typeGroups = {};
+  for (let row = 0; row < ROWS; row += 1) {
+    for (let col = 0; col < COLS; col += 1) {
+      const tile = topTile(board[row][col]);
+      if (tile) {
+        (typeGroups[tile.type] ??= []).push({
+          row, col, depth: getCellDepth(board, row, col)
+        });
+      }
+    }
+  }
+
+  for (const tiles of Object.values(typeGroups)) {
+    if (tiles.length < 2) continue;
+    for (let i = 0; i < tiles.length; i += 1) {
+      for (let j = i + 1; j < tiles.length; j += 1) {
+        const blockedLayers = normalizeBlockedLayers(tiles[i].depth, tiles[j].depth);
+        const path = findPath(board, tiles[i], tiles[j], blockedLayers);
+        if (path) {
+          return {
+            pair: [tiles[i], tiles[j]],
+            path,
+            tile: topTile(board[tiles[i].row][tiles[i].col]),
+            depths: {
+              first: tiles[i].depth,
+              second: tiles[j].depth
+            }
+          };
+        }
+      }
+    }
+  }
+  return null;
+}
+
 export function countRemainingTiles(board) {
   return board.flat().reduce((sum, cell) => sum + cell.length, 0);
 }
