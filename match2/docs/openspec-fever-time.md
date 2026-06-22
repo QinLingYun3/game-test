@@ -3,7 +3,7 @@
 ```yaml
 id: match2-fever-time
 version: 1.1.0
-status: draft
+status: completed
 author: Game Team
 date: 2026-06-22
 ```
@@ -499,13 +499,13 @@ setComboPopup({ count: combo.count, by: combo.by, token: combo.token, fever: com
 
 ## 6. 验收标准
 
-- [ ] 游戏开始后 60~180s 随机触发 Fever
-- [ ] Fever 持续 10s，顶部红色条跳动显示文案，背景宽度随倒计时缩短
-- [ ] Fever 期间所有道具图标变灰禁用
-- [ ] Fever 期间成功消除得分翻倍
-- [ ] Fever 期间点错扣 100 分，最低 0 分
-- [ ] Fever 开始前点的第一下，第二下在 Fever 期间不算双倍
-- [ ] Fever 期间使用道具返回错误提示
-- [ ] Fever 结束后道具恢复可用
-- [ ] 游戏结束后 Fever 不再触发
-- [ ] 多语言环境文案正确
+- [x] 游戏开始后 60~180s 随机触发 Fever
+- [x] Fever 持续 10s，顶部红色条跳动显示文案，背景宽度随倒计时缩短
+- [x] Fever 期间所有道具图标变灰禁用
+- [x] Fever 期间成功消除得分翻倍
+- [x] Fever 期间点错扣 100 分，最低 0 分
+- [x] Fever 开始前点的第一下，第二下在 Fever 期间不算双倍
+- [x] Fever 期间使用道具返回错误提示
+- [x] Fever 结束后道具恢复可用
+- [x] 游戏结束后 Fever 不再触发
+- [x] 多语言环境文案正确

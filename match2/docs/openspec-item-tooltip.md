@@ -3,7 +3,7 @@
 ```yaml
 id: match2-item-tooltip
 version: 1.0.0
-status: draft
+status: completed
 author: Game Team
 date: 2026-06-22
 ```
@@ -133,3 +133,15 @@ date: 2026-06-22
 | 3 | 新增 tooltip CSS | `src/styles.css` | 15 min |
 
 **总计：约 40 分钟**
+
+---
+
+## 6. 验收标准
+
+- [x] hover 到道具图标上时，弹出圆角气泡文字框
+- [x] 气泡显示道具名称 + 使用方式说明
+- [x] 气泡采用深色半透明背景 + 小三角指向下方的图标
+- [x] hover 离开时气泡平滑消失
+- [x] 三种道具（烟雾弹、混乱、快速消除）均覆盖
+- [x] 多语言环境（zh/en/fr）下文本正常显示
+- [x] 视觉与已有 UI 风格一致
