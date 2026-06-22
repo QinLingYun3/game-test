@@ -127,7 +127,19 @@ wss.on("connection", (socket) => {
           const before = liveRoom.activeItems.length;
           const now = Date.now();
           liveRoom.activeItems = liveRoom.activeItems.filter((item) => item.expiresAt > now);
-          if (liveRoom.activeItems.length !== before) {
+          const changed = liveRoom.activeItems.length !== before;
+          // Promote queued items for targets that just got cleared
+          const expiredTargets = [];
+          for (let i = liveRoom.itemQueue.length - 1; i >= 0; i--) {
+            const q = liveRoom.itemQueue[i];
+            const stillActive = liveRoom.activeItems.some((a) => a.type === q.type && a.target === q.target);
+            if (!stillActive && !expiredTargets.some((t) => t.type === q.type && t.target === q.target)) {
+              liveRoom.activeItems.push(q);
+              expiredTargets.push({ type: q.type, target: q.target });
+              liveRoom.itemQueue.splice(i, 1);
+            }
+          }
+          if (changed || expiredTargets.length > 0) {
             broadcastAfterAction(liveRoom, sockets);
           }
         }, 6500);

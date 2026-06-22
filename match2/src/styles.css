@@ -797,16 +797,18 @@ button {
   font-size: 72px;
   cursor: grab;
   user-select: none;
-  background: rgba(255, 255, 255, 0.12);
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 0 20px rgba(255, 215, 0, 0.15);
+  background: rgba(18, 24, 28, 0.65);
+  border: 2px solid rgba(160, 180, 200, 0.25);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3), inset 0 0 12px rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .item-icon:active {
   cursor: grabbing;
   transform: scale(1.05);
-  box-shadow: 0 0 30px rgba(255, 215, 0, 0.35);
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.45), inset 0 0 12px rgba(255, 255, 255, 0.05);
 }
 
 .smoke-bomb-icon:hover {

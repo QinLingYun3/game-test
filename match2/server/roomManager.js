@@ -136,6 +136,7 @@ function enterLobby(room) {
   room.startReveal = false;
   room.reshuffleCountdown = null;
   room.activeItems = [];
+  room.itemQueue = [];
   room.message = room.players.length < 2 ? createMessage("server.waitingForPlayer") : createMessage("server.hostCanStart");
   room.players = resetScores(room.players);
 }
@@ -198,6 +199,7 @@ export function createRoom({ socketId, nickname, avatarSeed }) {
     startReveal: false,
     comboTracker: createComboTracker([createPlayer(socketId, nickname, avatarSeed)]),
     activeItems: [],
+    itemQueue: [],
     message: createMessage("server.waitingForPlayer")
   };
 
@@ -246,8 +248,14 @@ export function useSmokeBomb(socketId, targetId) {
   }
   const now = Date.now();
   const token = `smoke:${socketId}:${now}`;
-  room.activeItems.push({ type: "smoke", by: socketId, target: targetId, token, expiresAt: now + 6500 });
-  return { room, by: socketId, target: targetId, token };
+  const item = { type: "smoke", by: socketId, target: targetId, token, expiresAt: now + 6500 };
+  const hasActive = room.activeItems.some((active) => active.type === "smoke" && active.target === targetId);
+  if (hasActive) {
+    room.itemQueue.push(item);
+  } else {
+    room.activeItems.push(item);
+  }
+  return { room, by: socketId, target: targetId, token, queued: hasActive };
 }
 
 export function startGame(socketId) {
@@ -414,6 +422,12 @@ export function leaveRoom(socketId) {
   room.players = room.players.filter((player) => player.id !== socketId);
   room.selections.delete(socketId);
   room.comboTracker.delete(socketId);
+  if (room.activeItems) {
+    room.activeItems = room.activeItems.filter((item) => item.by !== socketId && item.target !== socketId);
+  }
+  if (room.itemQueue) {
+    room.itemQueue = room.itemQueue.filter((item) => item.by !== socketId && item.target !== socketId);
+  }
 
   if (room.players.length === 0) {
     rooms.delete(room.code);
