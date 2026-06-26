@@ -432,7 +432,7 @@ function getAvatarLabel(nickname) {
 function getHomeErrorTarget(error) {
   const key = error?.key;
   if (!key) return null;
-  if (key === "error.enterNickname" || key === "error.previewOffline" || key === "error.serverNotReady") {
+  if (key === "error.enterNickname" || key === "error.previewOffline" || key === "error.serverNotReady" || key === "error.betaConsentRequired") {
     return "nickname";
   }
   if (
@@ -707,6 +707,13 @@ function App() {
           ? createPreviewResultsRoom(loadPreferredLanguage())
           : null
   );
+  const [betaConsent, setBetaConsent] = useState(() => {
+    try {
+      return window.localStorage.getItem("match2-beta-consent") === "true";
+    } catch {
+      return false;
+    }
+  });
   const [error, setError] = useState(null);
   const [status, setStatus] = useState(previewMode ? createMessage("status.preview") : createMessage("status.connecting"));
   const [onlineCount, setOnlineCount] = useState(null);
@@ -743,6 +750,19 @@ function App() {
       setAvatarModalOpen(false);
     }
   }, [avatarModalOpen, room?.phase]);
+
+  function onBetaConsentChange(checked) {
+    setBetaConsent(checked);
+    try {
+      if (checked) {
+        window.localStorage.setItem("match2-beta-consent", "true");
+      } else {
+        window.localStorage.removeItem("match2-beta-consent");
+      }
+    } catch {
+      // Ignore storage failures
+    }
+  }
 
   useEffect(() => {
     if (!copiedRoomCode) return undefined;
@@ -1147,11 +1167,13 @@ function App() {
 
   function onCreateRoom() {
     if (!homeAccessEnabled) return;
+    if (!betaConsent) { setError(createMessage("error.betaConsentRequired")); return; }
     send("create_room", { nickname, avatarSeed });
   }
 
     async function onStartSolo() {
     if (!homeAccessEnabled) return;
+    if (!betaConsent) { setError(createMessage("error.betaConsentRequired")); return; }
     let startIdx;
     if (soloLevelPick === "all") {
       startIdx = getSoloStartIndex(soloDifficulty);
@@ -1171,6 +1193,7 @@ function App() {
 
   function onJoinRoom() {
     if (!homeAccessEnabled) return;
+    if (!betaConsent) { setError(createMessage("error.betaConsentRequired")); return; }
     send("join_room", { nickname, code: joinCode, avatarSeed });
   }
 
@@ -1517,7 +1540,7 @@ function App() {
                   <button
                     type="button"
                     className={`mode-chip${gameMode === "solo" ? " active" : ""}`}
-                    disabled={!homeAccessEnabled}
+                    disabled={!homeAccessEnabled || !betaConsent}
                     onClick={() => setGameMode("solo")}
                   >
                     {t("home.modeSolo")}
@@ -1525,7 +1548,7 @@ function App() {
                   <button
                     type="button"
                     className={`mode-chip${gameMode === "multi" ? " active" : ""}`}
-                    disabled={!homeAccessEnabled}
+                    disabled={!homeAccessEnabled || !betaConsent}
                     onClick={() => setGameMode("multi")}
                   >
                     {t("home.modeMulti")}
@@ -1602,7 +1625,7 @@ function App() {
                   {homeErrorTarget === "nickname" && <p className="field-bubble">{formatMessage(error)}</p>}
                 </label>
                 <div className="home-actions home-actions-stack create-room-actions">
-                  <button className="primary-btn" disabled={!homeAccessEnabled} onClick={gameMode === "solo" ? onStartSolo : onCreateRoom}>
+                  <button className="primary-btn" disabled={!homeAccessEnabled || !betaConsent} onClick={gameMode === "solo" ? onStartSolo : onCreateRoom}>
                     {gameMode === "solo" ? t("home.startSolo") : t("home.create")}
                   </button>
                 </div>
@@ -1623,12 +1646,20 @@ function App() {
                       />
                       {homeErrorTarget === "join" && <p className="field-bubble join-bubble">{formatMessage(error)}</p>}
                     </label>
-                    <button className="secondary-btn join-btn" disabled={!homeAccessEnabled} onClick={onJoinRoom}>
+                    <button className="secondary-btn join-btn" disabled={!homeAccessEnabled || !betaConsent} onClick={onJoinRoom}>
                       {t("home.join")}
                     </button>
                   </div>
                 </>
               )}
+              <label className="beta-consent-row">
+                <input
+                  type="checkbox"
+                  checked={betaConsent}
+                  onChange={(event) => onBetaConsentChange(event.target.checked)}
+                />
+                <span>{t("beta.consent")}</span>
+              </label>
               <div className="home-how2play-row">
                 <button type="button" className="how2play-link" disabled={!homeAccessEnabled} onClick={() => setHow2playModalOpen(true)}>
                   {t("home.how2play")}

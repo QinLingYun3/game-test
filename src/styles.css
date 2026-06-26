@@ -1402,6 +1402,25 @@ button {
   margin-top: 18px;
 }
 
+.beta-consent-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 13px;
+  color: rgba(244, 247, 241, 0.7);
+  cursor: pointer;
+  user-select: none;
+}
+
+.beta-consent-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #f4cf83;
+  cursor: pointer;
+}
+
 .how2play-link {
   background: none;
   border: 0;
