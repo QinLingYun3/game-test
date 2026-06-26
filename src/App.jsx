@@ -387,7 +387,7 @@ function ItemSelectionOverlay({ countdown, playerItems, selectedItem, onSelect, 
 
 function createSocketUrl() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const port = window.location.port === "5173" ? "3001" : window.location.port;
+  const port = window.location.port === "5555" ? "3333" : window.location.port;
   const portSegment = port ? `:${port}` : "";
   return `${protocol}//${window.location.hostname}${portSegment}/ws`;
 }

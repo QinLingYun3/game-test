@@ -218,7 +218,7 @@ wss.on("connection", (socket) => {
   });
 });
 
-const port = Number(process.env.PORT ?? 3001);
+const port = Number(process.env.PORT ?? 3333);
 const host = process.env.HOST ?? "0.0.0.0";
 server.listen(port, host, () => {
   console.log(`match2 server listening on http://${host}:${port}`);

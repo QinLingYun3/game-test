@@ -15,14 +15,14 @@ export default defineConfig({
   },
   server: {
     host: "0.0.0.0",
-    port: 5173,
+    port: 5555,
     fs: {
       allow: [rootDir, sharedDir]
     },
     proxy: {
-      "/api": "http://localhost:3001",
+      "/api": "http://localhost:3333",
       "/ws": {
-        target: "ws://localhost:3001",
+        target: "ws://localhost:3333",
         ws: true
       }
     }
