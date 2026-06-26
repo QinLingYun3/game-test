@@ -17,6 +17,11 @@ import {
 
 const HARD_RANGE = getDifficultyRanges(LEVEL_CONFIGS).Hard ?? { start: 0, end: 0 };
 
+function pickRandomHardLevel() {
+  const count = HARD_RANGE.end - HARD_RANGE.start + 1;
+  return HARD_RANGE.start + Math.floor(Math.random() * count);
+}
+
 const rooms = new Map();
 const socketToRoom = new Map();
 const reshuffleIntervals = new Map();
@@ -246,7 +251,7 @@ function enterLobby(room) {
   clearFeverTimer(room.code);
   clearItemSelectionTimer(room.code);
   if (room.phase === "results") {
-    room.levelIndex = room.levelIndex >= HARD_RANGE.end ? HARD_RANGE.start : room.levelIndex + 1;
+    room.levelIndex = pickRandomHardLevel();
   }
   room.phase = "lobby";
   room.board = null;
@@ -321,7 +326,7 @@ export function createRoom({ socketId, nickname, avatarSeed }) {
     phase: "lobby",
     players: [createPlayer(socketId, nickname, avatarSeed)],
     board: null,
-    levelIndex: HARD_RANGE.start,
+    levelIndex: pickRandomHardLevel(),
     selections: new Map(),
     lastMatch: null,
     lastCombo: null,
@@ -458,7 +463,14 @@ function startGameFromSelections(room, sockets) {
     }
   });
   reloadLevelConfig(room.levelIndex);
-  room.board = createBoard();
+  try {
+    room.board = createBoard();
+  } catch {
+    // If board generation fails, try a different level and retry
+    room.levelIndex = pickRandomHardLevel();
+    reloadLevelConfig(room.levelIndex);
+    room.board = createBoard();
+  }
   room.initialTileCount = countRemainingTiles(room.board);
   room.message = createMessage("server.gameStarting", { count: 3 });
   broadcastRoom(room, sockets);
@@ -548,7 +560,13 @@ export function startGame(socketId) {
   room.fever = { active: false, startAt: 0, endAt: 0 };
   room.feverEverTriggered = false;
   reloadLevelConfig(room.levelIndex);
-  room.board = createBoard();
+  try {
+    room.board = createBoard();
+  } catch {
+    room.levelIndex = pickRandomHardLevel();
+    reloadLevelConfig(room.levelIndex);
+    room.board = createBoard();
+  }
   room.initialTileCount = countRemainingTiles(room.board);
   room.message = createMessage("server.gameStarting", { count: 5 });
   return { room };

@@ -1,158 +1,5 @@
-export const LEVEL_CONFIGS = [
-  {
-    id: "level-1-square-easy",
-    name: "Level 1 Square Easy",
-    difficulty: "Easy",
-    tileTypes: 5,
-    heightMap: [
-      [1, 1, 1, 1, 1, 1],
-      [1, 0, 0, 0, 0, 1],
-      [1, 0, 0, 0, 0, 1],
-      [1, 0, 0, 0, 0, 1],
-      [1, 0, 0, 0, 0, 1],
-      [1, 1, 1, 1, 1, 1],
-    ]
-  },
-  {
-    id: "level-2-k-easy",
-    name: "Level 2 K Easy",
-    difficulty: "Easy",
-    tileTypes: 5,
-    heightMap: [
-      [0, 1, 1, 0, 0, 1, 1, 0, 0],
-      [0, 1, 1, 0, 1, 1, 0, 0, 0],
-      [0, 1, 1, 1, 1, 0, 0, 0, 0],
-      [0, 1, 1, 1, 0, 0, 0, 0, 0],
-      [0, 1, 1, 0, 0, 0, 0, 0, 0],
-      [0, 1, 1, 1, 0, 0, 0, 0, 0],
-      [0, 1, 1, 1, 1, 0, 0, 0, 0],
-      [0, 1, 1, 0, 1, 1, 0, 0, 0],
-      [0, 1, 1, 0, 0, 1, 1, 0, 0],
-    ]
-  },
-  {
-    id: "level-3-heart-easy",
-    name: "Level 3 Heart Easy",
-    difficulty: "Easy",
-    tileTypes: 6,
-    heightMap: [
-      [0, 0, 1, 1, 0, 1, 1, 0, 0],
-      [0, 1, 1, 2, 1, 2, 1, 1, 0],
-      [1, 1, 2, 2, 2, 2, 2, 1, 1],
-      [1, 2, 2, 2, 2, 2, 2, 2, 1],
-      [0, 1, 2, 2, 2, 2, 2, 1, 0],
-      [0, 0, 1, 2, 2, 2, 1, 0, 0],
-      [0, 0, 1, 1, 2, 1, 1, 0, 0],
-      [0, 0, 0, 1, 2, 1, 0, 0, 0],
-      [0, 0, 0, 0, 1, 0, 0, 0, 0],
-    ]
-  },
-  {
-    id: "level-4-circle-medium",
-    name: "Level 4 Circle Medium",
-    difficulty: "Medium",
-    tileTypes: 7,
-    heightMap: [
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 1, 1, 1, 0, 0, 0],
-      [0, 0, 1, 1, 2, 1, 1, 0, 0],
-      [0, 1, 1, 2, 2, 2, 1, 1, 0],
-      [0, 1, 2, 2, 2, 2, 2, 1, 0],
-      [0, 1, 1, 2, 2, 2, 1, 1, 0],
-      [0, 0, 1, 1, 2, 1, 1, 0, 0],
-      [0, 0, 0, 1, 1, 1, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-    ]
-  },
-  {
-    id: "level-5-random-a-medium",
-    name: "Level 5 Random A Medium",
-    difficulty: "Medium",
-    tileTypes: 8,
-    heightMap: [
-      [1, 1, 1, 1, 1, 0, 1, 2, 1],
-      [1, 1, 2, 1, 2, 0, 2, 2, 2],
-      [2, 0, 2, 1, 0, 2, 1, 2, 2],
-      [2, 2, 1, 1, 1, 2, 1, 1, 1],
-      [2, 1, 2, 2, 2, 0, 0, 2, 2],
-      [2, 1, 1, 1, 1, 2, 2, 2, 1],
-      [1, 2, 2, 0, 2, 0, 2, 1, 1],
-      [2, 1, 1, 1, 2, 0, 2, 1, 1],
-      [0, 1, 1, 0, 1, 2, 1, 2, 2],
-    ]
-  },
-  {
-    id: "level-6-random-b-medium",
-    name: "Level 6 Random B Medium",
-    difficulty: "Medium",
-    tileTypes: 9,
-    heightMap: [
-      [1, 1, 1, 2, 0, 1, 1, 2, 1],
-      [1, 2, 0, 1, 1, 1, 2, 1, 2],
-      [2, 2, 0, 0, 0, 1, 1, 1, 2],
-      [2, 1, 2, 2, 2, 2, 1, 2, 2],
-      [1, 0, 2, 2, 0, 0, 1, 1, 1],
-      [2, 1, 1, 1, 2, 2, 0, 2, 1],
-      [0, 1, 1, 2, 2, 1, 2, 2, 2],
-      [2, 2, 1, 2, 2, 2, 2, 2, 0],
-      [1, 2, 2, 2, 1, 1, 1, 1, 1],
-    ]
-  },
-  {
-    id: "level-8-heart-hard",
-    name: "Level 8 Heart Hard",
-    difficulty: "Hard",
-    tileTypes: 10,
-    heightMap: [
-      [0, 0, 1, 1, 0, 0, 1, 1, 0, 0],
-      [0, 1, 2, 2, 2, 2, 2, 2, 1, 0],
-      [1, 2, 3, 3, 3, 3, 3, 3, 2, 1],
-      [1, 2, 3, 3, 3, 3, 3, 3, 2, 1],
-      [0, 1, 2, 3, 3, 3, 3, 2, 1, 0],
-      [0, 0, 1, 2, 3, 3, 2, 1, 0, 0],
-      [0, 0, 0, 1, 2, 2, 1, 0, 0, 0],
-      [0, 0, 0, 0, 1, 1, 0, 0, 0, 0],
-      [0, 0, 0, 0, 1, 1, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    ]
-  },
-  {
-    id: "level-7-square-hard",
-    name: "Level 5 Square Hard",
-    difficulty: "Hard",
-    tileTypes: 10,
-    heightMap: [
-      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-      [1, 2, 2, 2, 2, 2, 2, 2, 2, 1],
-      [1, 2, 3, 3, 3, 3, 3, 3, 2, 1],
-      [1, 2, 3, 3, 3, 3, 3, 3, 2, 1],
-      [1, 2, 3, 3, 3, 3, 3, 3, 2, 1],
-      [1, 2, 3, 3, 3, 3, 3, 3, 2, 1],
-      [1, 2, 3, 3, 3, 3, 3, 3, 2, 1],
-      [1, 2, 3, 3, 3, 3, 3, 3, 2, 1],
-      [1, 2, 2, 2, 2, 2, 2, 2, 2, 1],
-      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    ]
-  },
-  {
-    id: "level-9-star-hard",
-    name: "Level 9 Star Hard",
-    difficulty: "Hard",
-    tileTypes: 11,
-    heightMap: [
-      [0, 0, 0, 0, 1, 1, 0, 0, 0, 0],
-      [0, 0, 0, 1, 1, 1, 1, 0, 0, 0],
-      [0, 0, 1, 1, 2, 2, 0, 1, 0, 0],
-      [0, 1, 1, 2, 2, 2, 2, 1, 1, 0],
-      [0, 1, 0, 2, 3, 3, 2, 2, 1, 0],
-      [1, 1, 2, 2, 3, 3, 2, 2, 1, 1],
-      [0, 1, 1, 2, 2, 2, 2, 1, 1, 0],
-      [0, 0, 0, 1, 2, 2, 0, 1, 0, 0],
-      [0, 0, 0, 1, 1, 0, 1, 0, 0, 0],
-      [0, 0, 0, 0, 1, 1, 0, 0, 0, 0],
-    ]
-  }
-];
+import LEVEL_CONFIGS from "./levels.js";
+export { LEVEL_CONFIGS };
 
 export const ACTIVE_LEVEL_INDEX = 0;
 
@@ -666,16 +513,33 @@ export function countRemainingTiles(board) {
 }
 
 export function createBoard(seed = Date.now()) {
-  const random = createRng(seed);
-  const heights = createHeightMap();
-  const tileTypeCount = ACTIVE_LEVEL_CONFIG.tileTypes ?? 6;
-  const tiles = generateTiles(heights, tileTypeCount);
-  let attempt = 0;
+  for (let outer = 0; outer < 50; outer += 1) {
+    const random = createRng(seed + outer);
+    const heights = createHeightMap();
+    const tileTypeCount = ACTIVE_LEVEL_CONFIG.tileTypes ?? 6;
+    const tiles = generateTiles(heights, tileTypeCount);
+    let attempt = 0;
 
-  while (attempt < 100) {
-    const board = refillBoardWithHeights(tiles, heights, random);
-    if (!hasDuplicateTileTypesInAnyCell(board) && hasAnyMoves(board)) return board;
-    attempt += 1;
+    while (attempt < 200) {
+      const board = refillBoardWithHeights(tiles, heights, random);
+      if (!hasDuplicateTileTypesInAnyCell(board) && hasAnyMoves(board)) return board;
+      attempt += 1;
+    }
+  }
+
+  // Last resort: allow duplicate tile types in single cells but ensure playable
+  for (let outer = 0; outer < 20; outer += 1) {
+    const random = createRng(seed + 1000 + outer);
+    const heights = createHeightMap();
+    const tileTypeCount = ACTIVE_LEVEL_CONFIG.tileTypes ?? 6;
+    const tiles = generateTiles(heights, tileTypeCount);
+    let attempt = 0;
+
+    while (attempt < 200) {
+      const board = refillBoardWithHeights(tiles, heights, random);
+      if (hasAnyMoves(board)) return board;
+      attempt += 1;
+    }
   }
 
   throw new Error("无法生成可消除的棋盘");

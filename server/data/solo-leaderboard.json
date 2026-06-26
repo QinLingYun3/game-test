@@ -1,44 +1,124 @@
 {
   "entries": [
     {
-      "sessionId": "f1b1bd07-0d62-4a08-9d11-b8cb4f6d1301",
-      "nickname": "jbb",
-      "avatarSeed": "Mk7Qa2Lp9Z",
-      "score": 61630,
-      "submittedAt": 1782466800000,
-      "order": 0
-    },
-    {
-      "sessionId": "2b9409a2-9f0c-4c0e-a661-a584fe2f4eb9",
-      "nickname": "Thomas",
-      "avatarSeed": "Qv3Nt8Hs4K",
-      "score": 26795,
-      "submittedAt": 1782466860000,
+      "sessionId": "a450d04e-5c94-4d4b-abfa-385619e9e2e4",
+      "nickname": "Stanley",
+      "avatarSeed": "iXmk9nPzpA",
+      "score": 30820,
+      "submittedAt": 1782467123575,
       "order": 1
     },
     {
-      "sessionId": "90e1d0bf-25d5-4cc9-8c79-172f72a84634",
-      "nickname": "jbb",
-      "avatarSeed": "Yp6Rw1Cm8D",
-      "score": 10058,
-      "submittedAt": 1782466920000,
+      "sessionId": "5b481208-8abf-472a-bbb6-16c22b1efd2a",
+      "nickname": "Stanley",
+      "avatarSeed": "QVxy7pkoPw",
+      "score": 11333,
+      "submittedAt": 1782486824040,
+      "order": 12
+    },
+    {
+      "sessionId": "02cb197c-a201-40a7-8af4-69613a081cbb",
+      "nickname": "Stan",
+      "avatarSeed": "QVxy7pkoPw",
+      "score": 5213,
+      "submittedAt": 1782483336245,
+      "order": 4
+    },
+    {
+      "sessionId": "ceac996b-459e-4765-908c-13820eb4a2e7",
+      "nickname": "Stan",
+      "avatarSeed": "QVxy7pkoPw",
+      "score": 3767,
+      "submittedAt": 1782485084823,
+      "order": 5
+    },
+    {
+      "sessionId": "800726ad-9697-4744-9449-8869acc930ea",
+      "nickname": "Stanley",
+      "avatarSeed": "iXmk9nPzpA",
+      "score": 3567,
+      "submittedAt": 1782466878453,
+      "order": 0
+    },
+    {
+      "sessionId": "dfac03d5-ec51-4524-a36e-de4b2933f7f0",
+      "nickname": "Stanley",
+      "avatarSeed": "QVxy7pkoPw",
+      "score": 1213,
+      "submittedAt": 1782487631491,
+      "order": 13
+    },
+    {
+      "sessionId": "d9d8e3f9-ea63-4492-a3c1-14f5678b673f",
+      "nickname": "Stanley",
+      "avatarSeed": "iXmk9nPzpA",
+      "score": 1125,
+      "submittedAt": 1782467273769,
       "order": 2
     },
     {
-      "sessionId": "723a53d2-c969-4520-9830-886088d7f7ee",
-      "nickname": "Thomas",
-      "avatarSeed": "Ln5Xc2Vr7M",
-      "score": 9642,
-      "submittedAt": 1782466980000,
+      "sessionId": "27201181-8657-4b79-8c63-49fbe8dc5fe0",
+      "nickname": "Stan",
+      "avatarSeed": "QVxy7pkoPw",
+      "score": 400,
+      "submittedAt": 1782485684817,
+      "order": 6
+    },
+    {
+      "sessionId": "c835c675-d92f-4caf-afa5-0b1be885839c",
+      "nickname": "Stanley",
+      "avatarSeed": "QVxy7pkoPw",
+      "score": 350,
+      "submittedAt": 1782486414773,
+      "order": 8
+    },
+    {
+      "sessionId": "1a90ac1e-7a9d-4d12-b10b-8ef6fddda764",
+      "nickname": "yrk",
+      "avatarSeed": "QVxy7pkoPw",
+      "score": 0,
+      "submittedAt": 1782468721938,
       "order": 3
     },
     {
-      "sessionId": "7f1a3344-5a5c-4614-ae07-0e8b4372590d",
-      "nickname": "Thomas",
-      "avatarSeed": "Tb8Kq4Ws1J",
-      "score": 2469,
-      "submittedAt": 1782467040000,
-      "order": 4
+      "sessionId": "59def0df-b886-42f6-8ed8-200f939f06a6",
+      "nickname": "Stanley",
+      "avatarSeed": "QVxy7pkoPw",
+      "score": 0,
+      "submittedAt": 1782485746839,
+      "order": 7
+    },
+    {
+      "sessionId": "429763cd-75d3-4863-8c55-e7694917cbc6",
+      "nickname": "Stanley",
+      "avatarSeed": "QVxy7pkoPw",
+      "score": 0,
+      "submittedAt": 1782486733408,
+      "order": 9
+    },
+    {
+      "sessionId": "2eb96bf2-e170-4932-bba2-c8a6f770ca59",
+      "nickname": "Stanley",
+      "avatarSeed": "QVxy7pkoPw",
+      "score": 0,
+      "submittedAt": 1782486786451,
+      "order": 10
+    },
+    {
+      "sessionId": "6f172d60-bf39-4550-a4db-3b9cef040f72",
+      "nickname": "Stanley",
+      "avatarSeed": "QVxy7pkoPw",
+      "score": 0,
+      "submittedAt": 1782486804291,
+      "order": 11
+    },
+    {
+      "sessionId": "6e8b4798-d5d5-4db0-b74a-3b6f1b849b05",
+      "nickname": "Stanley",
+      "avatarSeed": "QVxy7pkoPw",
+      "score": 0,
+      "submittedAt": 1782488216608,
+      "order": 14
     }
   ]
 }
