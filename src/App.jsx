@@ -77,8 +77,9 @@ function isBoardPreviewMode() {
   return new URLSearchParams(window.location.search).get("preview");
 }
 
-function isHomeAccessEnabled() {
-  return true;
+function isHomeAccessEnabled(status, previewMode = false) {
+  if (previewMode) return true;
+  return status?.key === "status.connected";
 }
 
 function isTestMode() {
@@ -145,7 +146,7 @@ function createEmptyBoard() {
   return Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => []));
 }
 
-function createSoloRoom(nickname, avatarSeed, language, levelIndex) {
+function createSoloRoom(nickname, avatarSeed, language, levelIndex, difficulty = "default") {
   const playerId = "solo-player";
   const board = createBoard();
   return {
@@ -155,6 +156,7 @@ function createSoloRoom(nickname, avatarSeed, language, levelIndex) {
     players: [{ id: playerId, nickname: nickname || translate(language, "lobby.host"), avatarSeed, score: 0, maxCombo: 0 }],
     board,
     levelIndex,
+    soloDifficulty: difficulty,
     lastMatch: null,
     lastCombo: null,
     comboTracker: createComboTracker([playerId]),
@@ -193,6 +195,15 @@ function nextSoloLevelIndex(current, difficulty) {
   const end = getSoloEndIndex(difficulty);
   if (current < end) return current + 1;
   return getSoloStartIndex(difficulty);
+}
+
+function getSoloLevelProgress(levelIndex, difficulty = "default") {
+  const start = getSoloStartIndex(difficulty);
+  const end = getSoloEndIndex(difficulty);
+  return {
+    current: levelIndex - start + 1,
+    total: end - start + 1
+  };
 }
 
 function computeSoloCombo(comboTracker, playerId) {
@@ -645,7 +656,6 @@ function App() {
   const previewRuleMode = previewMode === "rule-test";
   const previewBoardMode = previewMode === "board";
   const previewResultsMode = previewMode === "results";
-  const homeAccessEnabled = isHomeAccessEnabled();
   const [language, setLanguage] = useState(() => loadPreferredLanguage());
   const [gameMode, setGameMode] = useState("multi");
   const [soloDifficulty, setSoloDifficulty] = useState("default");
@@ -670,6 +680,7 @@ function App() {
   );
   const [error, setError] = useState(null);
   const [status, setStatus] = useState(previewMode ? createMessage("status.preview") : createMessage("status.connecting"));
+  const homeAccessEnabled = isHomeAccessEnabled(status, previewMode);
   const [matchReveal, setMatchReveal] = useState(null);
   const [comboPopup, setComboPopup] = useState(null);
   const [playerComboPopup, setPlayerComboPopup] = useState(null);
@@ -720,7 +731,7 @@ function App() {
   }, [room?.levelIndex]);
 
   useEffect(() => {
-    if (previewMode || gameMode === "solo") return undefined;
+    if (previewMode) return undefined;
 
     const socket = new WebSocket(createSocketUrl());
     socketRef.current = socket;
@@ -748,7 +759,7 @@ function App() {
     });
 
     return () => socket.close();
-  }, [previewMode, gameMode]);
+  }, [previewMode]);
 
   // 音效：消除匹配时播放“叮”声
   const playMatchSound = useMatchSound(getPathSignature(room?.lastMatch));
@@ -949,10 +960,11 @@ function App() {
   }
 
   function onStartSolo() {
+    if (!homeAccessEnabled) return;
     const startIdx = getSoloStartIndex(soloDifficulty);
     reloadLevelConfig(startIdx);
     setSoloLevelIdx(startIdx);
-    const soloRoom = createSoloRoom(nickname, avatarSeed, language, startIdx);
+    const soloRoom = createSoloRoom(nickname, avatarSeed, language, startIdx, soloDifficulty);
     setPlayerId("solo-player");
     setRoom(soloRoom);
     setError(null);
@@ -995,10 +1007,13 @@ function App() {
           };
         }
         const cleared = isBoardCleared(nextBoard);
-        if (cleared && currentRoom.code === "SOLO" && currentRoom.levelIndex < getSoloEndIndex(soloDifficulty)) {
+        const currentSoloDifficulty = currentRoom.soloDifficulty ?? soloDifficulty;
+        if (cleared && currentRoom.code === "SOLO" && currentRoom.levelIndex < getSoloEndIndex(currentSoloDifficulty)) {
           const nextIdx = currentRoom.levelIndex + 1;
           reloadLevelConfig(nextIdx);
           const freshBoard = createBoard();
+          const currentProgress = getSoloLevelProgress(currentRoom.levelIndex, currentSoloDifficulty);
+          const nextProgress = getSoloLevelProgress(nextIdx, currentSoloDifficulty);
           return {
             ...currentRoom,
             comboTracker: nextComboTracker,
@@ -1007,7 +1022,7 @@ function App() {
             players: nextPlayers,
             remainingTiles: countRemainingTiles(freshBoard),
             removablePairs: countRemovablePairs(freshBoard),
-            message: createMessage("solo.levelComplete", { current: currentRoom.levelIndex + 1, next: nextIdx + 1 }),
+            message: createMessage("solo.levelComplete", { current: currentProgress.current, next: nextProgress.current }),
             lastMatch: { by: playerId, pair, path, tile, depths, token: `solo:${Date.now()}:quick` },
             lastCombo: { by: playerId, count: combo.count, scoreDelta: combo.scoreDelta, token: combo.token },
             phase: "game",
@@ -1121,10 +1136,13 @@ function App() {
 
         const cleared = isBoardCleared(nextBoard);
         // Solo mode: if cleared and not last level, advance to next level seamlessly
-        if (isSolo && cleared && currentRoom.levelIndex < getSoloEndIndex(soloDifficulty)) {
+        const currentSoloDifficulty = currentRoom.soloDifficulty ?? soloDifficulty;
+        if (isSolo && cleared && currentRoom.levelIndex < getSoloEndIndex(currentSoloDifficulty)) {
           const nextIdx = currentRoom.levelIndex + 1;
           reloadLevelConfig(nextIdx);
           const freshBoard = createBoard();
+          const currentProgress = getSoloLevelProgress(currentRoom.levelIndex, currentSoloDifficulty);
+          const nextProgress = getSoloLevelProgress(nextIdx, currentSoloDifficulty);
           return {
             ...currentRoom,
             comboTracker: nextComboTracker,
@@ -1134,8 +1152,8 @@ function App() {
             remainingTiles: countRemainingTiles(freshBoard),
             removablePairs: countRemovablePairs(freshBoard),
             message: createMessage("solo.levelComplete", {
-              current: currentRoom.levelIndex + 1,
-              next: nextIdx + 1
+              current: currentProgress.current,
+              next: nextProgress.current
             }),
             lastMatch: {
               by: playerId,
@@ -1249,8 +1267,19 @@ function App() {
             </div>
 
             <section className="panel home-panel">
+              <div className="home-connection-row" aria-label={formatMessage(status)} title={formatMessage(status)}>
+                <span className={`connection-dot ${connectionTone}`} />
+                <span className="home-connection-text">{formatMessage(status)}</span>
+              </div>
               <label className="field home-inline-field language-field">
-                <span>{t("language.label")}</span>
+                <span className="language-icon-slot">
+                  <img
+                    src="https://cdn-icons-png.flaticon.com/512/2014/2014350.png"
+                    alt="language"
+                    width="30"
+                    height="30"
+                  />
+                </span>
                 <select value={language} onChange={(event) => setLanguage(event.target.value)}>
                   {SUPPORTED_LANGUAGES.map((option) => (
                     <option key={option} value={option}>
@@ -1265,6 +1294,7 @@ function App() {
                   <button
                     type="button"
                     className={`mode-chip${gameMode === "solo" ? " active" : ""}`}
+                    disabled={!homeAccessEnabled}
                     onClick={() => setGameMode("solo")}
                   >
                     {t("home.modeSolo")}
@@ -1272,6 +1302,7 @@ function App() {
                   <button
                     type="button"
                     className={`mode-chip${gameMode === "multi" ? " active" : ""}`}
+                    disabled={!homeAccessEnabled}
                     onClick={() => setGameMode("multi")}
                   >
                     {t("home.modeMulti")}
@@ -1284,6 +1315,7 @@ function App() {
                   <select
                     className="difficulty-select"
                     value={soloDifficulty}
+                    disabled={!homeAccessEnabled}
                     onChange={(event) => setSoloDifficulty(event.target.value)}
                   >
                     <option value="default">{t("difficulty.default")}</option>
@@ -1336,7 +1368,7 @@ function App() {
                 </>
               )}
               <div className="home-how2play-row">
-                <button type="button" className="how2play-link" onClick={() => setHow2playModalOpen(true)}>
+                <button type="button" className="how2play-link" disabled={!homeAccessEnabled} onClick={() => setHow2playModalOpen(true)}>
                   {t("home.how2play")}
                 </button>
               </div>
@@ -1747,6 +1779,11 @@ function App() {
               <div className={`game-start-overlay${room.startReveal ? " fading" : ""}`}>
                 {room.startCountdown > 0 && (
                   <div className="game-start-countdown">
+                    {room?.code === "SOLO" && (
+                      <p className="game-start-stage">
+                        {t("solo.levelProgress", getSoloLevelProgress(room?.levelIndex ?? 0, room?.soloDifficulty ?? "default"))}
+                      </p>
+                    )}
                     <div className="game-start-ring">
                       <span className="game-start-number">{room.startCountdown}</span>
                     </div>
@@ -1855,14 +1892,16 @@ function App() {
                     className="primary-btn play-again-btn"
                     onClick={() => {
                       const soloPlayer = room?.players?.find((p) => p.id === playerId);
-                      const nextIdx = nextSoloLevelIndex(room?.levelIndex ?? soloLevelIdx, soloDifficulty);
+                      const currentSoloDifficulty = room?.soloDifficulty ?? soloDifficulty;
+                      const nextIdx = nextSoloLevelIndex(room?.levelIndex ?? soloLevelIdx, currentSoloDifficulty);
                       reloadLevelConfig(nextIdx);
                       setSoloLevelIdx(nextIdx);
                       const freshRoom = createSoloRoom(
                         soloPlayer?.nickname ?? nickname,
                         soloPlayer?.avatarSeed ?? avatarSeed,
                         language,
-                        nextIdx
+                        nextIdx,
+                        currentSoloDifficulty
                       );
                       setRoom(freshRoom);
                       setMatchReveal(null);

@@ -221,9 +221,27 @@ button {
   backdrop-filter: blur(14px);
 }
 
+.home-connection-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.home-connection-text {
+  color: rgba(255, 248, 230, 0.88);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .home-panel .field + .field,
 .home-panel .field + .home-actions,
 .home-panel .field + .mode-select-row,
+.home-panel .home-connection-row + .field,
+.home-panel .home-connection-row + .mode-select-row,
 .home-panel .home-actions + .home-divider,
 .home-panel .home-inline-action-row + .home-divider,
 .home-panel .home-divider + .join-row,
@@ -303,6 +321,14 @@ button {
     0 0 18px rgba(255, 183, 74, 0.28);
 }
 
+.mode-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+  box-shadow: none;
+  pointer-events: none;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -319,6 +345,18 @@ button {
 .home-inline-field span {
   width: 88px;
   flex: 0 0 88px;
+}
+
+.language-icon-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 88px;
+  flex: 0 0 88px;
+}
+
+.language-icon-slot img {
+  display: block;
 }
 
 .home-inline-field input,
@@ -1325,6 +1363,13 @@ button {
   color: rgba(255, 248, 230, 0.95);
 }
 
+.how2play-link:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  text-decoration: none;
+  pointer-events: none;
+}
+
 .how2play-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1962,6 +2007,15 @@ button {
   flex-direction: column;
   align-items: center;
   gap: 18px;
+}
+
+.game-start-stage {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(255, 244, 214, 0.88);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
 }
 
 .game-start-ring {
