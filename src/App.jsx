@@ -34,6 +34,7 @@ import useBgm from "./useBgm.js";
 import useCountdownVoice from "./useCountdownVoice.js";
 
 const AVATAR_STORAGE_KEY = "match2-avatar-seed";
+const NICKNAME_STORAGE_KEY = "match2-nickname";
 const AVATAR_EDIT_BATCH_SIZE = 9;
 const AVATAR_SEED_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const MAX_PLAYERS = 4;
@@ -55,6 +56,22 @@ function createAvatarBatch() {
 
 function getAvatarUrl(seed) {
   return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(normalizeAvatarSeed(seed))}`;
+}
+
+function loadPreferredNickname() {
+  try {
+    return window.localStorage.getItem(NICKNAME_STORAGE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function savePreferredNickname(value) {
+  try {
+    window.localStorage.setItem(NICKNAME_STORAGE_KEY, String(value).slice(0, 12));
+  } catch {
+    // Ignore storage failures.
+  }
 }
 
 function loadPreferredAvatarSeed() {
@@ -194,7 +211,8 @@ function getSoloEndIndex(difficulty) {
   return SOLO_DIFF_RANGES[difficulty]?.end ?? LEVEL_CONFIGS.length - 1;
 }
 
-function nextSoloLevelIndex(current, difficulty) {
+function nextSoloLevelIndex(current, difficulty, levelPick) {
+  if (levelPick && levelPick !== "all") return current;
   const end = getSoloEndIndex(difficulty);
   if (current < end) return current + 1;
   return getSoloStartIndex(difficulty);
@@ -662,10 +680,11 @@ function App() {
   const [language, setLanguage] = useState(() => loadPreferredLanguage());
   const [gameMode, setGameMode] = useState("multi");
   const [soloDifficulty, setSoloDifficulty] = useState("default");
-  const [soloLevelIdx, setSoloLevelIdx] = useState(0);
+    const [soloLevelIdx, setSoloLevelIdx] = useState(0);
+    const [soloLevelPick, setSoloLevelPick] = useState("all");
   const socketRef = useRef(null);
   const boardRef = useRef(null);
-  const [nickname, setNickname] = useState("");
+  const [nickname, setNickname] = useState(() => loadPreferredNickname());
   const [joinCode, setJoinCode] = useState("");
   const [avatarSeed, setAvatarSeed] = useState(() => loadPreferredAvatarSeed());
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
@@ -1102,19 +1121,28 @@ function App() {
   }
 
   async function startSoloSession(nextNickname, nextAvatarSeed, difficulty, startIdx) {
-    const result = await sendRequest(
-      "create_solo_session",
-      { nickname: nextNickname, avatarSeed: nextAvatarSeed },
-      "solo_session_created"
-    );
+    let sessionId = null;
+    try {
+      const result = await sendRequest(
+        "create_solo_session",
+        { nickname: nextNickname, avatarSeed: nextAvatarSeed },
+        "solo_session_created"
+      );
+      sessionId = result?.sessionId ?? null;
+    } catch {
+      // Solo mode works without server — leaderboard submission will be unavailable
+    }
     reloadLevelConfig(startIdx);
-    setSoloLevelIdx(startIdx);
-    const soloRoom = createSoloRoom(nextNickname, nextAvatarSeed, language, startIdx, difficulty, {
-      sessionId: result?.sessionId ?? null
-    });
-    setPlayerId("solo-player");
-    setRoom(soloRoom);
-    setError(null);
+    try {
+      const soloRoom = createSoloRoom(nextNickname, nextAvatarSeed, language, startIdx, difficulty, {
+        sessionId
+      });
+      setPlayerId("solo-player");
+      setRoom(soloRoom);
+      setError(null);
+    } catch {
+      setError(createMessage("error.boardGenerationFailed"));
+    }
   }
 
   function onCreateRoom() {
@@ -1122,9 +1150,14 @@ function App() {
     send("create_room", { nickname, avatarSeed });
   }
 
-  async function onStartSolo() {
+    async function onStartSolo() {
     if (!homeAccessEnabled) return;
-    const startIdx = getSoloStartIndex(soloDifficulty);
+    let startIdx;
+    if (soloLevelPick === "all") {
+      startIdx = getSoloStartIndex(soloDifficulty);
+    } else {
+      startIdx = Number(soloLevelPick);
+    }
     try {
       await startSoloSession(nickname, avatarSeed, soloDifficulty, startIdx);
     } catch (requestError) {
@@ -1172,7 +1205,7 @@ function App() {
         }
         const cleared = isBoardCleared(nextBoard);
         const currentSoloDifficulty = currentRoom.soloDifficulty ?? soloDifficulty;
-        if (cleared && currentRoom.code === "SOLO" && currentRoom.levelIndex < getSoloEndIndex(currentSoloDifficulty)) {
+                if (cleared && currentRoom.code === "SOLO" && currentRoom.levelIndex < getSoloEndIndex(currentSoloDifficulty) && soloLevelPick === "all") {
           const nextIdx = currentRoom.levelIndex + 1;
           reloadLevelConfig(nextIdx);
           const freshBoard = createBoard();
@@ -1212,6 +1245,27 @@ function App() {
       return;
     }
     send("use_quick_match");
+  }
+
+  function onUseSoloReshuffle() {
+    if (room?.code !== "SOLO") return;
+    if ((room?.removablePairs ?? 0) === 0 || room?.fever?.active || feverEffect?.active) return;
+    if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
+    setRoom((currentRoom) => {
+      if (!currentRoom || currentRoom.code !== "SOLO") return currentRoom;
+      if (currentRoom.reshuffleCountdown) return currentRoom;
+      const reshuffled = reshuffleBoard(currentRoom.board);
+      return {
+        ...currentRoom,
+        board: reshuffled,
+        remainingTiles: countRemainingTiles(reshuffled),
+        removablePairs: countRemovablePairs(reshuffled),
+        message: createMessage("server.boardReshuffled"),
+        lastMatch: null,
+        lastCombo: null,
+        you: { ...currentRoom.you, selection: null }
+      };
+    });
   }
 
   async function onCopyRoomCode(code) {
@@ -1301,7 +1355,7 @@ function App() {
         const cleared = isBoardCleared(nextBoard);
         // Solo mode: if cleared and not last level, advance to next level seamlessly
         const currentSoloDifficulty = currentRoom.soloDifficulty ?? soloDifficulty;
-        if (isSolo && cleared && currentRoom.levelIndex < getSoloEndIndex(currentSoloDifficulty)) {
+                if (isSolo && cleared && currentRoom.levelIndex < getSoloEndIndex(currentSoloDifficulty) && soloLevelPick === "all") {
           const nextIdx = currentRoom.levelIndex + 1;
           reloadLevelConfig(nextIdx);
           const freshBoard = createBoard();
@@ -1478,20 +1532,46 @@ function App() {
                   </button>
                 </div>
               </div>
-              {gameMode === "solo" && (
+                            {gameMode === "solo" && (
                 <div className="mode-select-row difficulty-select-row">
                   <span className="mode-label">{t("home.difficultyLabel")}</span>
                   <select
                     className="difficulty-select"
                     value={soloDifficulty}
                     disabled={!homeAccessEnabled}
-                    onChange={(event) => setSoloDifficulty(event.target.value)}
+                    onChange={(event) => {
+                      setSoloDifficulty(event.target.value);
+                      setSoloLevelPick("all");
+                    }}
                   >
                     <option value="default">{t("difficulty.default")}</option>
                     <option value="Easy">{t("difficulty.easy")}</option>
                     <option value="Medium">{t("difficulty.medium")}</option>
                     <option value="Hard">{t("difficulty.hard")}</option>
                   </select>
+                  {soloDifficulty !== "default" && (
+                    <>
+                      <span className="mode-label" style={{ marginLeft: "12px" }}>{t("home.levelLabel")}</span>
+                      <select
+                        className="level-pick-select"
+                        value={soloLevelPick}
+                        disabled={!homeAccessEnabled}
+                        onChange={(event) => setSoloLevelPick(event.target.value)}
+                      >
+                                                <option value="all">{t("home.allLevels")}</option>
+                          {LEVEL_CONFIGS.filter((c) => c.difficulty === soloDifficulty).map((config, i) => {
+                            const realIndex = LEVEL_CONFIGS.indexOf(config);
+                            const label = config.name.replace(/^Level \d+ /, "");
+                            const maxLayer = Math.max(...config.heightMap.flat(), 0);
+                            return (
+                              <option key={realIndex} value={realIndex}>
+                                {label} ({maxLayer} layers)
+                              </option>
+                            );
+                          })}
+                      </select>
+                    </>
+                  )}
                 </div>
               )}
               <div className="home-inline-action-row">
@@ -1512,9 +1592,10 @@ function App() {
                   <input
                     value={nickname}
                     onChange={(event) => {
-                      setNickname(event.target.value);
-                      if (homeErrorTarget === "nickname") setError(null);
-                    }}
+                                          setNickname(event.target.value);
+                                          savePreferredNickname(event.target.value);
+                                          if (homeErrorTarget === "nickname") setError(null);
+                                        }}
                     maxLength={12}
                     placeholder={t("home.nicknamePlaceholder")}
                   />
@@ -1789,6 +1870,22 @@ function App() {
                         </div>
                         <div className="item-tooltip-bubble">
                           {t("item.quickMatchDesc")}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {room?.code === "SOLO" && (
+                    <div className="item-slot">
+                      <div className="item-tooltip">
+                        <div
+                          className={`item-icon reshuffle-icon${(room?.removablePairs ?? 0) === 0 || room?.fever?.active || feverEffect?.active ? " disabled" : ""}`}
+                          onDoubleClick={onUseSoloReshuffle}
+                        >
+                          🔄
+                          <span className="item-count-badge">♾️</span>
+                        </div>
+                        <div className="item-tooltip-bubble">
+                          {t("item.reshuffleDesc")}
                         </div>
                       </div>
                     </div>
@@ -2095,7 +2192,7 @@ function App() {
                     onClick={async () => {
                       const soloPlayer = room?.players?.find((p) => p.id === playerId);
                       const currentSoloDifficulty = room?.soloDifficulty ?? soloDifficulty;
-                      const nextIdx = nextSoloLevelIndex(room?.levelIndex ?? soloLevelIdx, currentSoloDifficulty);
+                      const nextIdx = nextSoloLevelIndex(room?.levelIndex ?? soloLevelIdx, currentSoloDifficulty, soloLevelPick);
                       try {
                         await startSoloSession(
                           soloPlayer?.nickname ?? nickname,
