@@ -689,6 +689,7 @@ function App() {
   );
   const [error, setError] = useState(null);
   const [status, setStatus] = useState(previewMode ? createMessage("status.preview") : createMessage("status.connecting"));
+  const [onlineCount, setOnlineCount] = useState(null);
   const homeAccessEnabled = isHomeAccessEnabled(status, previewMode);
   const [matchReveal, setMatchReveal] = useState(null);
   const [comboPopup, setComboPopup] = useState(null);
@@ -732,6 +733,7 @@ function App() {
   useEffect(() => {
     if (previewMode || room) return;
     setStatus(createMessage("status.connecting"));
+    setOnlineCount(null);
   }, [previewMode, room]);
 
   useEffect(() => {
@@ -767,6 +769,9 @@ function App() {
       if (message.type === "connected") {
         setPlayerId(message.payload.playerId);
       }
+      if (message.type === "online_count") {
+        setOnlineCount(message.payload?.count ?? 0);
+      }
       if (message.type === "room_state") {
         setRoom(message.payload);
         setError(null);
@@ -784,6 +789,7 @@ function App() {
 
     socket.addEventListener("close", () => {
       releasePendingRequests();
+      setOnlineCount(null);
       setStatus(createMessage("status.disconnected"));
     });
 
@@ -1412,6 +1418,10 @@ function App() {
   const showGlobalError = Boolean(error) && !homeErrorTarget;
   const connectionTone = getConnectionTone(status);
   const currentPlayer = room?.players?.find((player) => player.id === playerId) ?? null;
+  const homeStatusText =
+    status?.key === "status.connected" && onlineCount != null
+      ? `${formatMessage(status)} · ${t("status.onlineCount", { count: onlineCount })}`
+      : formatMessage(status);
 
   return (
     <div className={`page-shell${!room ? " home-screen" : ""}`}>
@@ -1424,9 +1434,9 @@ function App() {
             </div>
 
             <section className="panel home-panel">
-              <div className="home-connection-row" aria-label={formatMessage(status)} title={formatMessage(status)}>
+              <div className="home-connection-row" aria-label={homeStatusText} title={homeStatusText}>
                 <span className={`connection-dot ${connectionTone}`} />
-                <span className="home-connection-text">{formatMessage(status)}</span>
+                <span className="home-connection-text">{homeStatusText}</span>
               </div>
               <label className="field home-inline-field language-field">
                 <span className="language-icon-slot">

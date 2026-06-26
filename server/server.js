@@ -56,6 +56,14 @@ function send(socket, type, payload) {
   socket.send(JSON.stringify({ type, payload }));
 }
 
+function broadcastOnlineCount() {
+  const count = sockets.size;
+  sockets.forEach((socket) => {
+    if (socket.readyState !== 1) return;
+    send(socket, "online_count", { count });
+  });
+}
+
 function normalizeNickname(value) {
   return String(value ?? "").trim().slice(0, 12);
 }
@@ -143,6 +151,7 @@ wss.on("connection", (socket) => {
   const socketId = randomUUID();
   sockets.set(socketId, socket);
   send(socket, "connected", { playerId: socketId });
+  broadcastOnlineCount();
 
   socket.on("message", (rawMessage) => {
     try {
@@ -322,6 +331,7 @@ wss.on("connection", (socket) => {
 
   socket.on("close", () => {
     sockets.delete(socketId);
+    broadcastOnlineCount();
     const room = leaveRoom(socketId);
     broadcastAfterAction(room, sockets);
   });
