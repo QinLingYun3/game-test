@@ -356,6 +356,19 @@ function refillBoardWithHeights(tiles, heights, random) {
   return board;
 }
 
+function hasDuplicateTileTypesInAnyCell(board) {
+  return board.some((row) =>
+    row.some((cell) => {
+      const seen = new Set();
+      for (const tile of cell) {
+        if (seen.has(tile.type)) return true;
+        seen.add(tile.type);
+      }
+      return false;
+    })
+  );
+}
+
 export function getTopTile(board, row, col) {
   return topTile(board[row]?.[col] ?? []);
 }
@@ -661,7 +674,7 @@ export function createBoard(seed = Date.now()) {
 
   while (attempt < 100) {
     const board = refillBoardWithHeights(tiles, heights, random);
-    if (hasAnyMoves(board)) return board;
+    if (!hasDuplicateTileTypesInAnyCell(board) && hasAnyMoves(board)) return board;
     attempt += 1;
   }
 
@@ -676,7 +689,12 @@ export function reshuffleBoard(board, seed = Date.now()) {
 
   while (attempt < 100) {
     const nextBoard = refillBoardWithHeights(tiles, heights, random);
-    if (countRemainingTiles(nextBoard) === 0 || hasAnyMoves(nextBoard)) return nextBoard;
+    if (
+      !hasDuplicateTileTypesInAnyCell(nextBoard) &&
+      (countRemainingTiles(nextBoard) === 0 || hasAnyMoves(nextBoard))
+    ) {
+      return nextBoard;
+    }
     attempt += 1;
   }
 
