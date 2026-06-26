@@ -1,2 +1,4 @@
-match2/node_modules/
-match2/dist/
+node_modules/
+dist/
+dist/*
+node_modules/*
