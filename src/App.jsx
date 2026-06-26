@@ -355,32 +355,8 @@ function ItemSelectionOverlay({ countdown, playerItems, selectedItem, onSelect, 
               {type ? "✅" : "⏳"}
             </span>
           ))}
-              </div>
-              {room?.code === "SOLO" && (
-                <div className="results-actions">
-                  <button
-                    className="primary-btn play-again-btn"
-                    onClick={() => {
-                      const soloPlayer = room?.players?.find((p) => p.id === playerId);
-                      const nextIdx = nextSoloLevelIndex(room?.levelIndex ?? soloLevelIdx, soloDifficulty);
-                      reloadLevelConfig(nextIdx);
-                      setSoloLevelIdx(nextIdx);
-                      const freshRoom = createSoloRoom(
-                        soloPlayer?.nickname ?? nickname,
-                        soloPlayer?.avatarSeed ?? avatarSeed,
-                        language,
-                        nextIdx
-                      );
-                      setRoom(freshRoom);
-                      setMatchReveal(null);
-                      setError(null);
-                    }}
-                  >
-                    {t("results.playAgain")}
-                  </button>
-                </div>
-              )}
-            </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -737,6 +713,11 @@ function App() {
     if (previewMode || room) return;
     setStatus(createMessage("status.connecting"));
   }, [previewMode, room]);
+
+  useEffect(() => {
+    if (room?.levelIndex == null) return;
+    reloadLevelConfig(room.levelIndex);
+  }, [room?.levelIndex]);
 
   useEffect(() => {
     if (previewMode || gameMode === "solo") return undefined;
@@ -1868,6 +1849,30 @@ function App() {
                   );
                 })}
               </div>
+              {room?.code === "SOLO" && (
+                <div className="results-actions">
+                  <button
+                    className="primary-btn play-again-btn"
+                    onClick={() => {
+                      const soloPlayer = room?.players?.find((p) => p.id === playerId);
+                      const nextIdx = nextSoloLevelIndex(room?.levelIndex ?? soloLevelIdx, soloDifficulty);
+                      reloadLevelConfig(nextIdx);
+                      setSoloLevelIdx(nextIdx);
+                      const freshRoom = createSoloRoom(
+                        soloPlayer?.nickname ?? nickname,
+                        soloPlayer?.avatarSeed ?? avatarSeed,
+                        language,
+                        nextIdx
+                      );
+                      setRoom(freshRoom);
+                      setMatchReveal(null);
+                      setError(null);
+                    }}
+                  >
+                    {t("results.playAgain")}
+                  </button>
+                </div>
+              )}
             </div>
           </section>
         )}
