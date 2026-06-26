@@ -3,14 +3,14 @@ setlocal EnableDelayedExpansion
 chcp 65001 >nul
 
 echo ============================================
-echo DGLZ 一键部署脚本 (Stanley 分支)
+echo Game-Test 一键部署脚本 (main 分支)
 echo ============================================
 echo [INFO] 开始时间: %date% %time%
 echo.
 
-set REPO_URL=https://github.com/cyber-doudou/DGLZ.git
-set BRANCH=Stanley
-set PROJECT_NAME=DGLZ
+set REPO_URL=https://github.com/QinLingYun3/game-test.git
+set BRANCH=main
+set PROJECT_NAME=game-test
 set "SCRIPT_DIR=%~dp0"
 set "PROJECT_DIR=%SCRIPT_DIR%%PROJECT_NAME%"
 
@@ -109,11 +109,11 @@ echo.
 echo [Step 6/6] 启动服务...
 
 echo [LOG] 启动后台 (端口 3333)...
-start "DGLZ-Backend" /min cmd /c "cd /d "%PROJECT_DIR%" && set NODE_ENV=production && node server/server.js"
+start "Game-Test-Backend" /min cmd /c "cd /d "%PROJECT_DIR%" && set NODE_ENV=production && node server/server.js"
 echo [OK] 后台已启动 (新窗口)
 
 echo [LOG] 启动前台 (端口 5555)...
-start "DGLZ-Frontend" /min cmd /c "cd /d "%PROJECT_DIR%" && npx vite preview --port 5555 --host 0.0.0.0"
+start "Game-Test-Frontend" /min cmd /c "cd /d "%PROJECT_DIR%" && npx vite preview --port 5555 --host 0.0.0.0"
 echo [OK] 前台已启动 (新窗口)
 
 echo.
