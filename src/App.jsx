@@ -146,7 +146,7 @@ function createEmptyBoard() {
   return Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => []));
 }
 
-function createSoloRoom(nickname, avatarSeed, language, levelIndex, difficulty = "default") {
+function createSoloRoom(nickname, avatarSeed, language, levelIndex, difficulty = "default", options = {}) {
   const playerId = "solo-player";
   const board = createBoard();
   return {
@@ -157,6 +157,9 @@ function createSoloRoom(nickname, avatarSeed, language, levelIndex, difficulty =
     board,
     levelIndex,
     soloDifficulty: difficulty,
+    soloSessionId: options.sessionId ?? null,
+    soloLeaderboardRank: options.leaderboardRank ?? null,
+    soloScoreSubmitted: options.scoreSubmitted ?? false,
     lastMatch: null,
     lastCombo: null,
     comboTracker: createComboTracker([playerId]),
@@ -667,8 +670,14 @@ function App() {
   const [avatarSeed, setAvatarSeed] = useState(() => loadPreferredAvatarSeed());
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [how2playModalOpen, setHow2playModalOpen] = useState(false);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+  const [leaderboardEntries, setLeaderboardEntries] = useState([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [avatarOptions, setAvatarOptions] = useState(() => createAvatarBatch());
   const [playerId, setPlayerId] = useState(previewMode ? "preview-player" : "");
+  const pendingRequestsRef = useRef(new Map());
+  const soloSubmitLocksRef = useRef(new Set());
+  const previousRoomRef = useRef(null);
   const [room, setRoom] = useState(() =>
     previewRuleMode
       ? createLayerRuleTestRoom(loadPreferredLanguage())
@@ -742,6 +751,19 @@ function App() {
 
     socket.addEventListener("message", (event) => {
       const message = JSON.parse(event.data);
+      const clientRequestId = message.payload?.clientRequestId;
+      if (clientRequestId) {
+        const pending = pendingRequestsRef.current.get(clientRequestId);
+        if (pending) {
+          if (message.type === pending.responseType) {
+            pendingRequestsRef.current.delete(clientRequestId);
+            pending.resolve(message.payload);
+          } else if (message.type === "error") {
+            pendingRequestsRef.current.delete(clientRequestId);
+            pending.reject(new Error(message.payload?.message?.key ?? "request_failed"));
+          }
+        }
+      }
       if (message.type === "connected") {
         setPlayerId(message.payload.playerId);
       }
@@ -749,16 +771,26 @@ function App() {
         setRoom(message.payload);
         setError(null);
       }
+      if (message.type === "leaderboard_state" && !clientRequestId) {
+        setLeaderboardEntries(message.payload.entries ?? []);
+      }
+      if (message.type === "solo_score_submitted" && !clientRequestId) {
+        setLeaderboardEntries(message.payload.leaderboard ?? []);
+      }
       if (message.type === "error") {
         setError(message.payload.message);
       }
     });
 
     socket.addEventListener("close", () => {
+      releasePendingRequests();
       setStatus(createMessage("status.disconnected"));
     });
 
-    return () => socket.close();
+    return () => {
+      releasePendingRequests();
+      socket.close();
+    };
   }, [previewMode]);
 
   // 音效：消除匹配时播放“叮”声
@@ -813,6 +845,37 @@ function App() {
       playMatchSound();
     }
   }, [getPathSignature(room?.lastMatch)]);
+
+  useEffect(() => {
+    const previousRoom = previousRoomRef.current;
+    if (
+      previousRoom?.code === "SOLO" &&
+      previousRoom.phase !== "results" &&
+      previousRoom.soloSessionId &&
+      previousRoom.soloSessionId !== room?.soloSessionId
+    ) {
+      submitSoloScoreSilently(previousRoom);
+    }
+    previousRoomRef.current = room;
+  }, [room]);
+
+  useEffect(() => {
+    if (room?.code === "SOLO" && room.phase === "results") {
+      void finalizeSoloScore(room);
+    }
+  }, [room?.code, room?.phase, room?.soloSessionId]);
+
+  useEffect(() => {
+    if (previewMode) return undefined;
+    const handleBeforeUnload = () => {
+      const activeRoom = previousRoomRef.current;
+      if (activeRoom?.code === "SOLO" && activeRoom.phase !== "results") {
+        submitSoloScoreSilently(activeRoom);
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [previewMode]);
 
   useEffect(() => {
     if (!room?.lastMatch?.path || room.phase !== "game" || room.lastMatch.by !== playerId) return undefined;
@@ -942,16 +1005,109 @@ function App() {
     previousPlayerPositionsRef.current = new Map(elements.map(({ id, top }) => [id, top]));
   }, [ranking]);
 
-  function send(type, payload) {
+  function send(type, payload, options = {}) {
+    const { silent = false } = options;
     if (previewMode) {
-      setError(createMessage("error.previewOffline"));
-      return;
+      if (!silent) setError(createMessage("error.previewOffline"));
+      return false;
     }
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
-      setError(createMessage("error.serverNotReady"));
-      return;
+      if (!silent) setError(createMessage("error.serverNotReady"));
+      return false;
     }
     socketRef.current.send(JSON.stringify({ type, payload }));
+    return true;
+  }
+
+  function sendRequest(type, payload, responseType) {
+    return new Promise((resolve, reject) => {
+      const clientRequestId = `${type}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+      pendingRequestsRef.current.set(clientRequestId, { resolve, reject, responseType });
+      const sent = send(type, { ...payload, clientRequestId }, { silent: true });
+      if (!sent) {
+        pendingRequestsRef.current.delete(clientRequestId);
+        reject(new Error("socket_not_ready"));
+      }
+    });
+  }
+
+  function releasePendingRequests() {
+    pendingRequestsRef.current.forEach(({ reject }) => reject(new Error("socket_closed")));
+    pendingRequestsRef.current.clear();
+  }
+
+  function getSoloSubmissionPayload(targetRoom) {
+    if (!targetRoom || targetRoom.code !== "SOLO" || !targetRoom.soloSessionId || targetRoom.soloScoreSubmitted) return null;
+    const soloPlayer = targetRoom.players?.find((player) => player.id === "solo-player");
+    return {
+      sessionId: targetRoom.soloSessionId,
+      score: soloPlayer?.score ?? 0
+    };
+  }
+
+  function submitSoloScoreSilently(targetRoom) {
+    const payload = getSoloSubmissionPayload(targetRoom);
+    if (!payload || soloSubmitLocksRef.current.has(payload.sessionId)) return false;
+    const sent = send("submit_solo_score", payload, { silent: true });
+    if (sent) {
+      soloSubmitLocksRef.current.add(payload.sessionId);
+    }
+    return sent;
+  }
+
+  async function finalizeSoloScore(targetRoom) {
+    const payload = getSoloSubmissionPayload(targetRoom);
+    if (!payload) return targetRoom?.soloLeaderboardRank ?? null;
+    if (soloSubmitLocksRef.current.has(payload.sessionId)) return null;
+
+    soloSubmitLocksRef.current.add(payload.sessionId);
+    try {
+      const result = await sendRequest("submit_solo_score", payload, "solo_score_submitted");
+      const nextRank = result?.rank ?? null;
+      setLeaderboardEntries(result?.leaderboard ?? []);
+      setRoom((currentRoom) =>
+        currentRoom?.soloSessionId === payload.sessionId
+          ? {
+              ...currentRoom,
+              soloScoreSubmitted: true,
+              soloLeaderboardRank: nextRank
+            }
+          : currentRoom
+      );
+      return nextRank;
+    } catch {
+      soloSubmitLocksRef.current.delete(payload.sessionId);
+      return null;
+    }
+  }
+
+  async function loadLeaderboard() {
+    if (previewMode) return;
+    setLeaderboardLoading(true);
+    try {
+      const result = await sendRequest("get_leaderboard", {}, "leaderboard_state");
+      setLeaderboardEntries(result?.entries ?? []);
+    } catch {
+      setError(createMessage("error.serverNotReady"));
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  }
+
+  async function startSoloSession(nextNickname, nextAvatarSeed, difficulty, startIdx) {
+    const result = await sendRequest(
+      "create_solo_session",
+      { nickname: nextNickname, avatarSeed: nextAvatarSeed },
+      "solo_session_created"
+    );
+    reloadLevelConfig(startIdx);
+    setSoloLevelIdx(startIdx);
+    const soloRoom = createSoloRoom(nextNickname, nextAvatarSeed, language, startIdx, difficulty, {
+      sessionId: result?.sessionId ?? null
+    });
+    setPlayerId("solo-player");
+    setRoom(soloRoom);
+    setError(null);
   }
 
   function onCreateRoom() {
@@ -959,15 +1115,18 @@ function App() {
     send("create_room", { nickname, avatarSeed });
   }
 
-  function onStartSolo() {
+  async function onStartSolo() {
     if (!homeAccessEnabled) return;
     const startIdx = getSoloStartIndex(soloDifficulty);
-    reloadLevelConfig(startIdx);
-    setSoloLevelIdx(startIdx);
-    const soloRoom = createSoloRoom(nickname, avatarSeed, language, startIdx, soloDifficulty);
-    setPlayerId("solo-player");
-    setRoom(soloRoom);
-    setError(null);
+    try {
+      await startSoloSession(nickname, avatarSeed, soloDifficulty, startIdx);
+    } catch (requestError) {
+      if (requestError?.message?.startsWith("error.")) {
+        setError(createMessage(requestError.message));
+      } else {
+        setError(createMessage("error.serverNotReady"));
+      }
+    }
   }
 
   function onJoinRoom() {
@@ -986,10 +1145,8 @@ function App() {
         const { pair, path, tile, depths } = match;
         const nextBoard = removePair(currentRoom.board, pair[0], pair[1]);
         const nextComboTracker = new Map(currentRoom.comboTracker);
-        const combo = computeSoloCombo(nextComboTracker, playerId);
-        const nextPlayers = currentRoom.players.map((p) =>
-          p.id === playerId ? { ...p, score: p.score + combo.scoreDelta, maxCombo: Math.max(p.maxCombo ?? 0, combo.count) } : p
-        );
+        nextComboTracker.set(playerId, { count: 0, lastClearedAt: 0 });
+        const nextPlayers = currentRoom.players;
         if (!hasAnyMoves(nextBoard) && !isBoardCleared(nextBoard)) {
           const reshuffled = reshuffleBoard(nextBoard);
           return {
@@ -1001,7 +1158,7 @@ function App() {
             removablePairs: countRemovablePairs(reshuffled),
             message: createMessage("server.boardReshuffled"),
             lastMatch: { by: playerId, pair, path, tile, depths, token: `solo:${Date.now()}:quick` },
-            lastCombo: { by: playerId, count: combo.count, scoreDelta: combo.scoreDelta, token: combo.token },
+            lastCombo: null,
             phase: "game",
             you: { ...currentRoom.you, selection: null }
           };
@@ -1024,7 +1181,7 @@ function App() {
             removablePairs: countRemovablePairs(freshBoard),
             message: createMessage("solo.levelComplete", { current: currentProgress.current, next: nextProgress.current }),
             lastMatch: { by: playerId, pair, path, tile, depths, token: `solo:${Date.now()}:quick` },
-            lastCombo: { by: playerId, count: combo.count, scoreDelta: combo.scoreDelta, token: combo.token },
+            lastCombo: null,
             phase: "game",
             startCountdown: 3,
             startReveal: false,
@@ -1040,7 +1197,7 @@ function App() {
           removablePairs: countRemovablePairs(nextBoard),
           message: createMessage("server.quickMatchUsed", { nickname: nextPlayers.find((p) => p.id === playerId)?.nickname ?? "" }),
           lastMatch: { by: playerId, pair, path, tile, depths, token: `solo:${Date.now()}:quick` },
-          lastCombo: { by: playerId, count: combo.count, scoreDelta: combo.scoreDelta, token: combo.token },
+          lastCombo: null,
           phase: cleared ? "results" : "game",
           you: { ...currentRoom.you, selection: null }
         };
@@ -1370,6 +1527,17 @@ function App() {
               <div className="home-how2play-row">
                 <button type="button" className="how2play-link" disabled={!homeAccessEnabled} onClick={() => setHow2playModalOpen(true)}>
                   {t("home.how2play")}
+                </button>
+                <button
+                  type="button"
+                  className="how2play-link"
+                  disabled={!homeAccessEnabled}
+                  onClick={() => {
+                    setLeaderboardOpen(true);
+                    void loadLeaderboard();
+                  }}
+                >
+                  {t("home.leaderboard")}
                 </button>
               </div>
             </section>
@@ -1861,6 +2029,13 @@ function App() {
                     <div className="results-pill-row">
                       <span className="results-stat-pill">{t("results.points", { score: resultsRanking[0].score })}</span>
                       <span className="results-stat-pill combo">{t("results.maxCombo", { count: resultsRanking[0].maxCombo ?? 0 })}</span>
+                      {room?.code === "SOLO" && (
+                        <span className="results-stat-pill rank">
+                          {room?.soloLeaderboardRank != null
+                            ? t("leaderboard.resultRank", { rank: room.soloLeaderboardRank })
+                            : t("leaderboard.submitting")}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </article>
@@ -1890,22 +2065,26 @@ function App() {
                 <div className="results-actions">
                   <button
                     className="primary-btn play-again-btn"
-                    onClick={() => {
+                    onClick={async () => {
                       const soloPlayer = room?.players?.find((p) => p.id === playerId);
                       const currentSoloDifficulty = room?.soloDifficulty ?? soloDifficulty;
                       const nextIdx = nextSoloLevelIndex(room?.levelIndex ?? soloLevelIdx, currentSoloDifficulty);
-                      reloadLevelConfig(nextIdx);
-                      setSoloLevelIdx(nextIdx);
-                      const freshRoom = createSoloRoom(
-                        soloPlayer?.nickname ?? nickname,
-                        soloPlayer?.avatarSeed ?? avatarSeed,
-                        language,
-                        nextIdx,
-                        currentSoloDifficulty
-                      );
-                      setRoom(freshRoom);
-                      setMatchReveal(null);
-                      setError(null);
+                      try {
+                        await startSoloSession(
+                          soloPlayer?.nickname ?? nickname,
+                          soloPlayer?.avatarSeed ?? avatarSeed,
+                          currentSoloDifficulty,
+                          nextIdx
+                        );
+                        setMatchReveal(null);
+                        setError(null);
+                      } catch (requestError) {
+                        if (requestError?.message?.startsWith("error.")) {
+                          setError(createMessage(requestError.message));
+                        } else {
+                          setError(createMessage("error.serverNotReady"));
+                        }
+                      }
                     }}
                   >
                     {t("results.playAgain")}
@@ -1961,6 +2140,38 @@ function App() {
                 ✕
               </button>
               <img className="how2play-image" src="/img/how2play.jpg" alt={t("home.how2play")} />
+            </div>
+          </div>
+        )}
+        {leaderboardOpen && (
+          <div className="how2play-modal-backdrop" onClick={() => setLeaderboardOpen(false)}>
+            <div className="how2play-modal leaderboard-modal" onClick={(event) => event.stopPropagation()}>
+              <button
+                type="button"
+                className="how2play-modal-close"
+                onClick={() => setLeaderboardOpen(false)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+              <div className="leaderboard-header">
+                <h3>{t("leaderboard.title")}</h3>
+              </div>
+              <div className="leaderboard-list">
+                {leaderboardLoading && <p className="leaderboard-empty">{t("leaderboard.loading")}</p>}
+                {!leaderboardLoading && leaderboardEntries.length === 0 && <p className="leaderboard-empty">{t("leaderboard.empty")}</p>}
+                {!leaderboardLoading &&
+                  leaderboardEntries.map((entry) => (
+                    <article className="leaderboard-row" key={`${entry.rank}-${entry.nickname}-${entry.score}`}>
+                      <div className="leaderboard-row-leading">
+                        <span className="leaderboard-rank">#{entry.rank}</span>
+                        <img className="avatar-image leaderboard-avatar" src={getAvatarUrl(entry.avatarSeed)} alt={entry.nickname} />
+                        <strong>{entry.nickname}</strong>
+                      </div>
+                      <span className="results-stat-pill">{t("results.points", { score: entry.score })}</span>
+                    </article>
+                  ))}
+              </div>
             </div>
           </div>
         )}
