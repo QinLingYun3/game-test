@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 setlocal EnableDelayedExpansion
 chcp 65001 >nul
 
@@ -111,7 +111,7 @@ echo.
 echo [Step 6/6] 启动服务...
 
 echo [LOG] 启动后台 (端口 3333)...
-start "Game-Test-Backend" /min cmd /c "cd /d "%SCRIPT_DIR%" && set NODE_ENV=production && node server/server.js"
+start "Game-Test-Backend" /min cmd /c "cd /d "%SCRIPT_DIR%" && set NODE_ENV=production && set MATCH2_DATA_DIR=%SCRIPT_DIR%..\match2-data && node server/server.js"
 echo [OK] 后台已启动
 
 echo [LOG] 启动前台 (端口 5555)...
