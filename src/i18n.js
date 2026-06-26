@@ -31,6 +31,7 @@ const translations = {
     "difficulty.medium": "中等",
     "difficulty.hard": "困难",
     "home.how2play": "玩法",
+    "home.leaderboard": "排行榜",
     "home.tip": "牌堆按层向中心收拢，越上层覆盖范围越小，成功配对后会从最上层开始消除。",
     "lobby.title": "大厅",
     "lobby.roomCode": "房号 {{code}}",
@@ -79,6 +80,11 @@ const translations = {
     "server.gameFinished": "本局结束",
     "solo.levelProgress": "关卡：{{current}}/{{total}}",
     "solo.levelComplete": "第 {{current}} 关完成，即将进入第 {{next}} 关",
+    "leaderboard.title": "排行榜",
+    "leaderboard.loading": "排行榜加载中...",
+    "leaderboard.empty": "暂时还没有成绩",
+    "leaderboard.resultRank": "排行榜第 {{rank}} 名",
+    "leaderboard.submitting": "排行榜结算中...",
     "server.selectionCanceled": "已取消选择",
     "server.firstSelected": "已选中第一张牌",
     "server.matchScored": "{{nickname}} 成功消除，+{{score}}",
@@ -127,7 +133,8 @@ const translations = {
     "server.itemSelectionCountdown": "选择道具倒计时 {{count}} 秒",
     "error.itemSelectionEnded": "道具选择已结束",
     "error.invalidItem": "无效的道具",
-    "error.itemNotOwned": "你未选择此道具"
+    "error.itemNotOwned": "你未选择此道具",
+    "error.invalidSoloSession": "单人会话已失效，请重新开始"
   },
   en: {
     "language.label": "Language",
@@ -157,6 +164,7 @@ const translations = {
     "difficulty.medium": "Medium",
     "difficulty.hard": "Hard",
     "home.how2play": "How to Play",
+    "home.leaderboard": "Leaderboard",
     "home.tip": "Stacks taper toward the center. Upper layers cover less area, and matches always remove the top layer first.",
     "lobby.title": "Lobby",
     "lobby.roomCode": "Room {{code}}",
@@ -205,6 +213,11 @@ const translations = {
     "server.gameFinished": "Round complete",
     "solo.levelProgress": "Level {{current}}/{{total}}",
     "solo.levelComplete": "Level {{current}} complete! Starting level {{next}}",
+    "leaderboard.title": "Leaderboard",
+    "leaderboard.loading": "Loading leaderboard...",
+    "leaderboard.empty": "No scores yet",
+    "leaderboard.resultRank": "Leaderboard Rank #{{rank}}",
+    "leaderboard.submitting": "Submitting leaderboard score...",
     "server.selectionCanceled": "Selection cancelled",
     "server.firstSelected": "First tile selected",
     "server.matchScored": "{{nickname}} matched a pair, +{{score}}",
@@ -253,7 +266,8 @@ const translations = {
     "server.itemSelectionCountdown": "Item selection ends in {{count}}s",
     "error.itemSelectionEnded": "Item selection has ended",
     "error.invalidItem": "Invalid item",
-    "error.itemNotOwned": "You do not own this item"
+    "error.itemNotOwned": "You do not own this item",
+    "error.invalidSoloSession": "This solo session is no longer valid. Start a new run."
   },
   fr: {
     "language.label": "Langue",
@@ -283,6 +297,7 @@ const translations = {
     "difficulty.medium": "Moyen",
     "difficulty.hard": "Difficile",
     "home.how2play": "Comment jouer",
+    "home.leaderboard": "Classement",
     "home.tip": "Les piles se resserrent vers le centre. Les couches superieures couvrent moins d'espace et les paires retirent toujours la couche du dessus.",
     "lobby.title": "Salon",
     "lobby.roomCode": "Salle {{code}}",
@@ -331,6 +346,11 @@ const translations = {
     "server.gameFinished": "Manche terminee",
     "solo.levelProgress": "Niveau {{current}}/{{total}}",
     "solo.levelComplete": "Niveau {{current}} termine ! Lancement du niveau {{next}}",
+    "leaderboard.title": "Classement",
+    "leaderboard.loading": "Chargement du classement...",
+    "leaderboard.empty": "Aucun score pour le moment",
+    "leaderboard.resultRank": "Classement n°{{rank}}",
+    "leaderboard.submitting": "Envoi du score au classement...",
     "server.selectionCanceled": "Selection annulee",
     "server.firstSelected": "Premiere tuile selectionnee",
     "server.matchScored": "{{nickname}} a retire une paire, +{{score}}",
@@ -379,7 +399,8 @@ const translations = {
     "server.itemSelectionCountdown": "Choix se termine dans {{count}}s",
     "error.itemSelectionEnded": "Le choix est termine",
     "error.invalidItem": "Objet invalide",
-    "error.itemNotOwned": "Vous n'avez pas cet objet"
+    "error.itemNotOwned": "Vous n'avez pas cet objet",
+    "error.invalidSoloSession": "Cette session solo n'est plus valide. Relancez une partie."
   }
 };
 

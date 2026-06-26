@@ -32,6 +32,10 @@ const wss = new WebSocketServer({ server, path: "/ws" });
 const sockets = new Map();
 const clientDir = path.join(rootDir, "dist");
 const isProduction = process.env.NODE_ENV === "production";
+const soloSessions = new Map();
+const soloLeaderboard = [];
+const LEADERBOARD_LIMIT = 20;
+let soloSubmitOrder = 0;
 
 function createMessage(key, params = {}) {
   return { key, params };
@@ -67,6 +71,74 @@ function normalizeAvatarSeed(value) {
   return normalized || "player";
 }
 
+function normalizeSessionId(value) {
+  return String(value ?? "").trim();
+}
+
+function normalizeScore(value) {
+  const score = Number(value);
+  if (!Number.isFinite(score)) return 0;
+  return Math.max(0, Math.round(score));
+}
+
+function compareLeaderboardEntries(a, b) {
+  if (b.score !== a.score) return b.score - a.score;
+  if (a.submittedAt !== b.submittedAt) return a.submittedAt - b.submittedAt;
+  return a.order - b.order;
+}
+
+function getLeaderboardPayload() {
+  return soloLeaderboard
+    .slice()
+    .sort(compareLeaderboardEntries)
+    .slice(0, LEADERBOARD_LIMIT)
+    .map((entry, index) => ({
+      rank: index + 1,
+      nickname: entry.nickname,
+      avatarSeed: entry.avatarSeed,
+      score: entry.score
+    }));
+}
+
+function createSoloSession(nickname, avatarSeed) {
+  const sessionId = randomUUID();
+  soloSessions.set(sessionId, {
+    sessionId,
+    nickname,
+    avatarSeed,
+    submitted: false,
+    rank: null
+  });
+  return sessionId;
+}
+
+function submitSoloScore(sessionId, score) {
+  const session = soloSessions.get(sessionId);
+  if (!session) {
+    return { error: createMessage("error.invalidSoloSession") };
+  }
+
+  if (!session.submitted) {
+    const entry = {
+      sessionId,
+      nickname: session.nickname,
+      avatarSeed: session.avatarSeed,
+      score,
+      submittedAt: Date.now(),
+      order: soloSubmitOrder++
+    };
+    soloLeaderboard.push(entry);
+    soloLeaderboard.sort(compareLeaderboardEntries);
+    session.submitted = true;
+    session.rank = soloLeaderboard.findIndex((item) => item.sessionId === sessionId) + 1;
+  }
+
+  return {
+    rank: session.rank,
+    leaderboard: getLeaderboardPayload()
+  };
+}
+
 wss.on("connection", (socket) => {
   const socketId = randomUUID();
   sockets.set(socketId, socket);
@@ -85,6 +157,21 @@ wss.on("connection", (socket) => {
         broadcastAfterAction(previousRoom, sockets);
         const room = createRoom({ socketId, nickname, avatarSeed });
         return broadcastAfterAction(room, sockets);
+      }
+
+      if (type === "create_solo_session") {
+        const nickname = normalizeNickname(payload?.nickname);
+        const avatarSeed = normalizeAvatarSeed(payload?.avatarSeed);
+        if (!nickname) {
+          return send(socket, "error", {
+            clientRequestId: payload?.clientRequestId ?? null,
+            message: createMessage("error.enterNickname")
+          });
+        }
+        return send(socket, "solo_session_created", {
+          clientRequestId: payload?.clientRequestId ?? null,
+          sessionId: createSoloSession(nickname, avatarSeed)
+        });
       }
 
       if (type === "join_room") {
@@ -203,6 +290,28 @@ wss.on("connection", (socket) => {
         const result = replay(socketId);
         if (result.error) return send(socket, "error", { message: result.error });
         return broadcastAfterAction(result.room, sockets);
+      }
+
+      if (type === "submit_solo_score") {
+        const sessionId = normalizeSessionId(payload?.sessionId);
+        const result = submitSoloScore(sessionId, normalizeScore(payload?.score));
+        if (result.error) {
+          return send(socket, "error", {
+            clientRequestId: payload?.clientRequestId ?? null,
+            message: result.error
+          });
+        }
+        return send(socket, "solo_score_submitted", {
+          clientRequestId: payload?.clientRequestId ?? null,
+          ...result
+        });
+      }
+
+      if (type === "get_leaderboard") {
+        return send(socket, "leaderboard_state", {
+          clientRequestId: payload?.clientRequestId ?? null,
+          entries: getLeaderboardPayload()
+        });
       }
 
       return send(socket, "error", { message: createMessage("error.unknownAction") });
