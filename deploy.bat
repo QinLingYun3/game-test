@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 setlocal EnableDelayedExpansion
 chcp 65001 >nul
 
@@ -10,52 +10,54 @@ echo.
 
 set REPO_URL=https://github.com/QinLingYun3/game-test.git
 set BRANCH=main
-set PROJECT_NAME=game-test
-set "SCRIPT_DIR=%~dp0"
-set "PROJECT_DIR=%SCRIPT_DIR%%PROJECT_NAME%"
+set SCRIPT_DIR=%~dp0
 
-echo [INFO] 脚本目录: %SCRIPT_DIR%
-echo [INFO] 项目目录: %PROJECT_DIR%
-
+echo [INFO] 工作目录: %SCRIPT_DIR%
 cd /d "%SCRIPT_DIR%"
 
 echo.
 echo [Step 1/6] 拉取/更新代码 (分支: %BRANCH%)...
-if not exist "%PROJECT_DIR%\.git" (
-    echo [LOG] 首次克隆仓库...
-    git clone --branch %BRANCH% --single-branch %REPO_URL% "%PROJECT_NAME%"
-    if errorlevel 1 (
-        echo [ERROR] git clone 失败！请检查网络和仓库地址。
-        pause
-        exit /b 1
-    )
-    echo [OK] 克隆完成
-) else (
-    echo [LOG] 更新现有仓库...
-    cd /d "%PROJECT_DIR%"
+if exist ".git" (
+    echo [LOG] 已有仓库，更新...
     git fetch origin %BRANCH%
     if errorlevel 1 (
-        echo [ERROR] git fetch 失败！
+        echo [ERROR] git fetch 失败!
         pause
         exit /b 1
     )
     git checkout %BRANCH%
     git reset --hard origin/%BRANCH%
     if errorlevel 1 (
-        echo [ERROR] git pull/reset 失败！
+        echo [ERROR] git reset 失败!
         pause
         exit /b 1
     )
     echo [OK] 代码已更新到最新
+) else (
+    echo [LOG] 首次拉取到当前目录...
+    git init
+    git remote add origin %REPO_URL%
+    git fetch origin %BRANCH%
+    if errorlevel 1 (
+        echo [ERROR] git fetch 失败!
+        pause
+        exit /b 1
+    )
+    git checkout %BRANCH%
+    git reset --hard origin/%BRANCH%
+    if errorlevel 1 (
+        echo [ERROR] git reset 失败!
+        pause
+        exit /b 1
+    )
+    echo [OK] 拉取完成
 )
-
-cd /d "%PROJECT_DIR%"
 
 echo.
 echo [Step 2/6] 安装依赖...
 call npm install
 if errorlevel 1 (
-    echo [ERROR] npm install 失败！
+    echo [ERROR] npm install 失败!
     pause
     exit /b 1
 )
@@ -65,7 +67,7 @@ echo.
 echo [Step 3/6] 编译构建...
 call npm run build
 if errorlevel 1 (
-    echo [ERROR] npm run build 失败！
+    echo [ERROR] npm run build 失败!
     pause
     exit /b 1
 )
@@ -109,16 +111,16 @@ echo.
 echo [Step 6/6] 启动服务...
 
 echo [LOG] 启动后台 (端口 3333)...
-start "Game-Test-Backend" /min cmd /c "cd /d "%PROJECT_DIR%" && set NODE_ENV=production && node server/server.js"
-echo [OK] 后台已启动 (新窗口)
+start "Game-Test-Backend" /min cmd /c "cd /d "%SCRIPT_DIR%" && set NODE_ENV=production && node server/server.js"
+echo [OK] 后台已启动
 
 echo [LOG] 启动前台 (端口 5555)...
-start "Game-Test-Frontend" /min cmd /c "cd /d "%PROJECT_DIR%" && npx vite preview --port 5555 --host 0.0.0.0"
-echo [OK] 前台已启动 (新窗口)
+start "Game-Test-Frontend" /min cmd /c "cd /d "%SCRIPT_DIR%" && npx vite preview --port 5555 --host 0.0.0.0"
+echo [OK] 前台已启动
 
 echo.
 echo ============================================
-echo [SUCCESS] 部署完成！
+echo [SUCCESS] 部署完成!
 echo 后台地址: http://localhost:3333
 echo 前台地址: http://localhost:5555
 echo 结束时间: %date% %time%
