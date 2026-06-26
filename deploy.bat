@@ -1,0 +1,128 @@
+@echo off
+setlocal EnableDelayedExpansion
+chcp 65001 >nul
+
+echo ============================================
+echo DGLZ 一键部署脚本 (Stanley 分支)
+echo ============================================
+echo [INFO] 开始时间: %date% %time%
+echo.
+
+set REPO_URL=https://github.com/cyber-doudou/DGLZ.git
+set BRANCH=Stanley
+set PROJECT_NAME=DGLZ
+set "SCRIPT_DIR=%~dp0"
+set "PROJECT_DIR=%SCRIPT_DIR%%PROJECT_NAME%"
+
+echo [INFO] 脚本目录: %SCRIPT_DIR%
+echo [INFO] 项目目录: %PROJECT_DIR%
+
+cd /d "%SCRIPT_DIR%"
+
+echo.
+echo [Step 1/6] 拉取/更新代码 (分支: %BRANCH%)...
+if not exist "%PROJECT_DIR%\.git" (
+    echo [LOG] 首次克隆仓库...
+    git clone --branch %BRANCH% --single-branch %REPO_URL% "%PROJECT_NAME%"
+    if errorlevel 1 (
+        echo [ERROR] git clone 失败！请检查网络和仓库地址。
+        pause
+        exit /b 1
+    )
+    echo [OK] 克隆完成
+) else (
+    echo [LOG] 更新现有仓库...
+    cd /d "%PROJECT_DIR%"
+    git fetch origin %BRANCH%
+    if errorlevel 1 (
+        echo [ERROR] git fetch 失败！
+        pause
+        exit /b 1
+    )
+    git checkout %BRANCH%
+    git reset --hard origin/%BRANCH%
+    if errorlevel 1 (
+        echo [ERROR] git pull/reset 失败！
+        pause
+        exit /b 1
+    )
+    echo [OK] 代码已更新到最新
+)
+
+cd /d "%PROJECT_DIR%"
+
+echo.
+echo [Step 2/6] 安装依赖...
+call npm install
+if errorlevel 1 (
+    echo [ERROR] npm install 失败！
+    pause
+    exit /b 1
+)
+echo [OK] 依赖安装完成
+
+echo.
+echo [Step 3/6] 编译构建...
+call npm run build
+if errorlevel 1 (
+    echo [ERROR] npm run build 失败！
+    pause
+    exit /b 1
+)
+echo [OK] 构建完成
+
+echo.
+echo [Step 4/6] 停止已有后台进程 (端口 3333)...
+set KILLED_BACKEND=0
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3333 " ^| findstr "LISTENING"') do (
+    echo [LOG] 发现后台进程 PID: %%a，正在终止...
+    taskkill /PID %%a /F >nul 2>&1
+    if !errorlevel! equ 0 (
+        echo [OK] 后台 PID %%a 已终止
+    ) else (
+        echo [WARN] 无法终止后台 PID %%a
+    )
+    set KILLED_BACKEND=1
+)
+if %KILLED_BACKEND% equ 0 echo [INFO] 端口 3333 无运行中进程
+
+echo.
+echo [Step 5/6] 停止已有前台进程 (端口 5555)...
+set KILLED_FRONTEND=0
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5555 " ^| findstr "LISTENING"') do (
+    echo [LOG] 发现前台进程 PID: %%a，正在终止...
+    taskkill /PID %%a /F >nul 2>&1
+    if !errorlevel! equ 0 (
+        echo [OK] 前台 PID %%a 已终止
+    ) else (
+        echo [WARN] 无法终止前台 PID %%a
+    )
+    set KILLED_FRONTEND=1
+)
+if %KILLED_FRONTEND% equ 0 echo [INFO] 端口 5555 无运行中进程
+
+echo.
+echo [LOG] 等待端口释放...
+timeout /t 2 /nobreak >nul
+
+echo.
+echo [Step 6/6] 启动服务...
+
+echo [LOG] 启动后台 (端口 3333)...
+start "DGLZ-Backend" /min cmd /c "cd /d "%PROJECT_DIR%" && set NODE_ENV=production && node server/server.js"
+echo [OK] 后台已启动 (新窗口)
+
+echo [LOG] 启动前台 (端口 5555)...
+start "DGLZ-Frontend" /min cmd /c "cd /d "%PROJECT_DIR%" && npx vite preview --port 5555 --host 0.0.0.0"
+echo [OK] 前台已启动 (新窗口)
+
+echo.
+echo ============================================
+echo [SUCCESS] 部署完成！
+echo 后台地址: http://localhost:3333
+echo 前台地址: http://localhost:5555
+echo 结束时间: %date% %time%
+echo ============================================
+
+endlocal
+pause
