@@ -425,8 +425,36 @@ button {
   align-items: end;
 }
 
+.home-avatar-wrap {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  align-self: center;
+}
+
+.home-avatar-image {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 241, 211, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 10px 20px rgba(0, 0, 0, 0.16);
+}
+
 .nickname-field {
   min-width: 0;
+}
+
+.nickname-field .home-avatar-wrap {
+  flex: 0 0 auto;
+}
+
+.home-avatar-edit-btn {
+  right: -5px;
+  bottom: -5px;
 }
 
 .create-room-actions {
@@ -1236,8 +1264,8 @@ button {
 
 .avatar-edit-btn {
   position: absolute;
-  top: -4px;
   right: -4px;
+  bottom: -4px;
   width: 24px;
   height: 24px;
   border: 0;
@@ -1497,6 +1525,33 @@ button {
 .leaderboard-avatar {
   width: 42px;
   height: 42px;
+}
+
+.credits-modal {
+  width: min(420px, calc(100vw - 32px));
+  padding: 22px;
+  align-items: stretch;
+}
+
+.credits-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 0 4px;
+}
+
+.credits-name {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 241, 211, 0.1);
+  color: #fff8ea;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0.02em;
 }
 
 .player-chip.empty {
@@ -2428,6 +2483,14 @@ button {
   .home-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .home-inline-action-row {
+    grid-template-columns: 1fr;
+  }
+
+  .home-avatar-trigger {
+    justify-self: start;
   }
 
   .join-row {

@@ -670,6 +670,7 @@ function App() {
   const [avatarSeed, setAvatarSeed] = useState(() => loadPreferredAvatarSeed());
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [how2playModalOpen, setHow2playModalOpen] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [leaderboardEntries, setLeaderboardEntries] = useState([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
@@ -719,7 +720,7 @@ function App() {
   }, [avatarSeed]);
 
   useEffect(() => {
-    if (room?.phase !== "lobby" && avatarModalOpen) {
+    if (room && room?.phase !== "lobby" && avatarModalOpen) {
       setAvatarModalOpen(false);
     }
   }, [avatarModalOpen, room?.phase]);
@@ -1374,6 +1375,7 @@ function App() {
     const normalizedSeed = normalizeAvatarSeed(nextSeed);
     setAvatarSeed(normalizedSeed);
     setAvatarModalOpen(false);
+    if (!room) return;
     if (previewMode || room?.code === "SOLO") {
       setRoom((currentRoom) => {
         if (!currentRoom) return currentRoom;
@@ -1495,6 +1497,18 @@ function App() {
               <div className="home-inline-action-row">
                 <label className={`field home-inline-field nickname-field${homeErrorTarget === "nickname" ? " has-bubble" : ""}`}>
                   <span>{t("home.nicknameLabel")}</span>
+                  <div className="home-avatar-wrap">
+                    <img className="avatar-image home-avatar-image" src={getAvatarUrl(avatarSeed)} alt={t("lobby.editAvatar")} />
+                    <button
+                      type="button"
+                      className="avatar-edit-btn home-avatar-edit-btn"
+                      aria-label={t("lobby.editAvatar")}
+                      title={t("lobby.editAvatar")}
+                      onClick={onOpenAvatarModal}
+                    >
+                      ✏️
+                    </button>
+                  </div>
                   <input
                     value={nickname}
                     onChange={(event) => {
@@ -1548,6 +1562,9 @@ function App() {
                   }}
                 >
                   {t("home.leaderboard")}
+                </button>
+                <button type="button" className="how2play-link" disabled={!homeAccessEnabled} onClick={() => setCreditsOpen(true)}>
+                  {t("home.credits")}
                 </button>
               </div>
             </section>
@@ -2107,18 +2124,16 @@ function App() {
 
         {showGlobalError && <p className="error-banner">{formatMessage(error)}</p>}
 
-        {room?.phase === "lobby" && avatarModalOpen && (
+        {avatarModalOpen && (
           <div className="avatar-modal-backdrop" onClick={() => setAvatarModalOpen(false)}>
             <section className="avatar-modal" onClick={(event) => event.stopPropagation()}>
               <div className="avatar-modal-header">
                 <h3>{t("lobby.avatarTitle")}</h3>
-                {currentPlayer && (
-                  <img
-                    className="avatar-image avatar-modal-current"
-                    src={getAvatarUrl(currentPlayer.avatarSeed ?? avatarSeed)}
-                    alt={currentPlayer.nickname}
-                  />
-                )}
+                <img
+                  className="avatar-image avatar-modal-current"
+                  src={getAvatarUrl(currentPlayer?.avatarSeed ?? avatarSeed)}
+                  alt={currentPlayer?.nickname ?? t("lobby.editAvatar")}
+                />
               </div>
               <div className="avatar-grid">
                 {avatarOptions.map((seed) => (
@@ -2181,6 +2196,27 @@ function App() {
                       <span className="results-stat-pill">{t("results.points", { score: entry.score })}</span>
                     </article>
                   ))}
+              </div>
+            </div>
+          </div>
+        )}
+        {creditsOpen && (
+          <div className="how2play-modal-backdrop" onClick={() => setCreditsOpen(false)}>
+            <div className="how2play-modal credits-modal" onClick={(event) => event.stopPropagation()}>
+              <button
+                type="button"
+                className="how2play-modal-close"
+                onClick={() => setCreditsOpen(false)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+              <div className="leaderboard-header">
+                <h3>{t("home.credits")}</h3>
+              </div>
+              <div className="credits-list">
+                <p className="credits-name">YAN Rong Kang</p>
+                <p className="credits-name">QIN Ling Yun</p>
               </div>
             </div>
           </div>

@@ -43,7 +43,7 @@ export const LEVEL_CONFIGS = [
       [0, 1, 2, 2, 2, 2, 2, 1, 0],
       [0, 0, 1, 2, 2, 2, 1, 0, 0],
       [0, 0, 1, 1, 2, 1, 1, 0, 0],
-      [0, 0, 0, 1, 1, 1, 0, 0, 0],
+      [0, 0, 0, 1, 2, 1, 0, 0, 0],
       [0, 0, 0, 0, 1, 0, 0, 0, 0],
     ]
   },
@@ -68,7 +68,7 @@ export const LEVEL_CONFIGS = [
     id: "level-5-random-a-medium",
     name: "Level 5 Random A Medium",
     difficulty: "Medium",
-    tileTypes: 7,
+    tileTypes: 8,
     heightMap: [
       [1, 1, 1, 1, 1, 0, 1, 2, 1],
       [1, 1, 2, 1, 2, 0, 2, 2, 2],
@@ -85,7 +85,7 @@ export const LEVEL_CONFIGS = [
     id: "level-6-random-b-medium",
     name: "Level 6 Random B Medium",
     difficulty: "Medium",
-    tileTypes: 7,
+    tileTypes: 9,
     heightMap: [
       [1, 1, 1, 2, 0, 1, 1, 2, 1],
       [1, 2, 0, 1, 1, 1, 2, 1, 2],
@@ -102,7 +102,7 @@ export const LEVEL_CONFIGS = [
     id: "level-8-heart-hard",
     name: "Level 8 Heart Hard",
     difficulty: "Hard",
-    tileTypes: 8,
+    tileTypes: 10,
     heightMap: [
       [0, 0, 1, 1, 0, 0, 1, 1, 0, 0],
       [0, 1, 2, 2, 2, 2, 2, 2, 1, 0],
@@ -120,7 +120,7 @@ export const LEVEL_CONFIGS = [
     id: "level-7-square-hard",
     name: "Level 5 Square Hard",
     difficulty: "Hard",
-    tileTypes: 8,
+    tileTypes: 10,
     heightMap: [
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
       [1, 2, 2, 2, 2, 2, 2, 2, 2, 1],
@@ -138,7 +138,7 @@ export const LEVEL_CONFIGS = [
     id: "level-9-star-hard",
     name: "Level 9 Star Hard",
     difficulty: "Hard",
-    tileTypes: 8,
+    tileTypes: 11,
     heightMap: [
       [0, 0, 0, 0, 1, 1, 0, 0, 0, 0],
       [0, 0, 0, 1, 1, 1, 1, 0, 0, 0],
@@ -309,8 +309,22 @@ function countHeightMapTiles(heights) {
   return heights.flat().reduce((sum, height) => sum + height, 0);
 }
 
+function assertEvenTileCount(heights, levelName = "unknown-level") {
+  const tileCount = countHeightMapTiles(heights);
+  if (tileCount % 2 !== 0) {
+    throw new Error(`Level ${levelName} has an odd tile count: ${tileCount}`);
+  }
+  return tileCount;
+}
+
+function validateLevelConfigs(levelConfigs = LEVEL_CONFIGS) {
+  levelConfigs.forEach((config) => {
+    assertEvenTileCount(config.heightMap, config.id);
+  });
+}
+
 function generateTiles(heights, tileTypeCount = TILE_TYPES.length) {
-  const pairCount = countHeightMapTiles(heights) / 2;
+  const pairCount = assertEvenTileCount(heights) / 2;
   const tiles = [];
   for (let index = 0; index < pairCount; index += 1) {
     const tileType = TILE_TYPES[index % tileTypeCount];
@@ -716,3 +730,5 @@ export function getVisibleBoard(board) {
 export function isBoardCleared(board) {
   return board.flat().every((cell) => isCellEmpty(cell));
 }
+
+validateLevelConfigs();
