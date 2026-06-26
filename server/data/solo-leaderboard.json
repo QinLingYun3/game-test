@@ -1,0 +1,44 @@
+{
+  "entries": [
+    {
+      "sessionId": "f1b1bd07-0d62-4a08-9d11-b8cb4f6d1301",
+      "nickname": "jbb",
+      "avatarSeed": "Mk7Qa2Lp9Z",
+      "score": 61630,
+      "submittedAt": 1782466800000,
+      "order": 0
+    },
+    {
+      "sessionId": "2b9409a2-9f0c-4c0e-a661-a584fe2f4eb9",
+      "nickname": "Thomas",
+      "avatarSeed": "Qv3Nt8Hs4K",
+      "score": 26795,
+      "submittedAt": 1782466860000,
+      "order": 1
+    },
+    {
+      "sessionId": "90e1d0bf-25d5-4cc9-8c79-172f72a84634",
+      "nickname": "jbb",
+      "avatarSeed": "Yp6Rw1Cm8D",
+      "score": 10058,
+      "submittedAt": 1782466920000,
+      "order": 2
+    },
+    {
+      "sessionId": "723a53d2-c969-4520-9830-886088d7f7ee",
+      "nickname": "Thomas",
+      "avatarSeed": "Ln5Xc2Vr7M",
+      "score": 9642,
+      "submittedAt": 1782466980000,
+      "order": 3
+    },
+    {
+      "sessionId": "7f1a3344-5a5c-4614-ae07-0e8b4372590d",
+      "nickname": "Thomas",
+      "avatarSeed": "Tb8Kq4Ws1J",
+      "score": 2469,
+      "submittedAt": 1782467040000,
+      "order": 4
+    }
+  ]
+}

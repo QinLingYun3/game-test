@@ -1,5 +1,6 @@
 import express from "express";
 import { randomUUID } from "node:crypto";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,10 +33,13 @@ const wss = new WebSocketServer({ server, path: "/ws" });
 const sockets = new Map();
 const clientDir = path.join(rootDir, "dist");
 const isProduction = process.env.NODE_ENV === "production";
+const dataDir = path.join(__dirname, "data");
+const leaderboardFilePath = path.join(dataDir, "solo-leaderboard.json");
 const soloSessions = new Map();
 const soloLeaderboard = [];
 const LEADERBOARD_LIMIT = 20;
 let soloSubmitOrder = 0;
+let leaderboardWriteChain = Promise.resolve();
 
 function createMessage(key, params = {}) {
   return { key, params };
@@ -89,10 +93,53 @@ function normalizeScore(value) {
   return Math.max(0, Math.round(score));
 }
 
+function sanitizeLeaderboardEntry(entry) {
+  return {
+    sessionId: normalizeSessionId(entry?.sessionId) || randomUUID(),
+    nickname: normalizeNickname(entry?.nickname),
+    avatarSeed: normalizeAvatarSeed(entry?.avatarSeed),
+    score: normalizeScore(entry?.score),
+    submittedAt: Number.isFinite(Number(entry?.submittedAt)) ? Number(entry.submittedAt) : Date.now(),
+    order: Number.isFinite(Number(entry?.order)) ? Number(entry.order) : 0
+  };
+}
+
 function compareLeaderboardEntries(a, b) {
   if (b.score !== a.score) return b.score - a.score;
   if (a.submittedAt !== b.submittedAt) return a.submittedAt - b.submittedAt;
   return a.order - b.order;
+}
+
+async function loadPersistedLeaderboard() {
+  try {
+    const raw = await readFile(leaderboardFilePath, "utf8");
+    const parsed = JSON.parse(raw);
+    const entries = Array.isArray(parsed?.entries) ? parsed.entries : [];
+    const normalizedEntries = entries
+      .map(sanitizeLeaderboardEntry)
+      .filter((entry) => entry.nickname);
+    soloLeaderboard.splice(0, soloLeaderboard.length, ...normalizedEntries.sort(compareLeaderboardEntries));
+    soloSubmitOrder = soloLeaderboard.reduce((maxOrder, entry) => Math.max(maxOrder, entry.order), -1) + 1;
+  } catch (error) {
+    if (error?.code !== "ENOENT") {
+      console.error("Failed to load solo leaderboard:", error);
+    }
+  }
+}
+
+async function persistLeaderboard() {
+  await mkdir(dataDir, { recursive: true });
+  const tempPath = `${leaderboardFilePath}.tmp`;
+  const payload = JSON.stringify({ entries: soloLeaderboard }, null, 2);
+  await writeFile(tempPath, payload, "utf8");
+  await rename(tempPath, leaderboardFilePath);
+}
+
+function queueLeaderboardPersist() {
+  leaderboardWriteChain = leaderboardWriteChain
+    .catch(() => undefined)
+    .then(() => persistLeaderboard());
+  return leaderboardWriteChain;
 }
 
 function getLeaderboardPayload() {
@@ -120,7 +167,7 @@ function createSoloSession(nickname, avatarSeed) {
   return sessionId;
 }
 
-function submitSoloScore(sessionId, score) {
+async function submitSoloScore(sessionId, score) {
   const session = soloSessions.get(sessionId);
   if (!session) {
     return { error: createMessage("error.invalidSoloSession") };
@@ -139,6 +186,7 @@ function submitSoloScore(sessionId, score) {
     soloLeaderboard.sort(compareLeaderboardEntries);
     session.submitted = true;
     session.rank = soloLeaderboard.findIndex((item) => item.sessionId === sessionId) + 1;
+    await queueLeaderboardPersist();
   }
 
   return {
@@ -153,7 +201,7 @@ wss.on("connection", (socket) => {
   send(socket, "connected", { playerId: socketId });
   broadcastOnlineCount();
 
-  socket.on("message", (rawMessage) => {
+  socket.on("message", async (rawMessage) => {
     try {
       const message = JSON.parse(String(rawMessage));
       const { type, payload } = message;
@@ -303,7 +351,7 @@ wss.on("connection", (socket) => {
 
       if (type === "submit_solo_score") {
         const sessionId = normalizeSessionId(payload?.sessionId);
-        const result = submitSoloScore(sessionId, normalizeScore(payload?.score));
+        const result = await submitSoloScore(sessionId, normalizeScore(payload?.score));
         if (result.error) {
           return send(socket, "error", {
             clientRequestId: payload?.clientRequestId ?? null,
@@ -339,6 +387,7 @@ wss.on("connection", (socket) => {
 
 const port = Number(process.env.PORT ?? 3333);
 const host = process.env.HOST ?? "0.0.0.0";
+await loadPersistedLeaderboard();
 server.listen(port, host, () => {
   console.log(`match2 server listening on http://${host}:${port}`);
 });
