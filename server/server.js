@@ -33,7 +33,7 @@ const wss = new WebSocketServer({ server, path: "/ws" });
 const sockets = new Map();
 const clientDir = path.join(rootDir, "dist");
 const isProduction = process.env.NODE_ENV === "production";
-const dataDir = path.join(__dirname, "data");
+const dataDir = process.env.MATCH2_DATA_DIR || path.join(rootDir, "..", "match2-data");
 const leaderboardFilePath = path.join(dataDir, "solo-leaderboard.json");
 const soloSessions = new Map();
 const soloLeaderboard = [];
