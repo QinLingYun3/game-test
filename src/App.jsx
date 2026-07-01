@@ -1536,6 +1536,15 @@ function App() {
                 <span className={`connection-dot ${connectionTone}`} />
                 <span className="home-connection-text">{homeStatusText}</span>
               </div>
+              <label className="beta-consent-row">
+                <input
+                  type="checkbox"
+                  checked={betaConsent}
+                  onChange={(event) => onBetaConsentChange(event.target.checked)}
+                />
+                <span>{t("beta.consent")}</span>
+              </label>
+              <div className="home-divider" aria-hidden="true" />
               <label className="field home-inline-field language-field">
                 <span className="language-icon-slot">
                   <img
@@ -1671,14 +1680,6 @@ function App() {
                   </div>
                 </>
               )}
-              <label className="beta-consent-row">
-                <input
-                  type="checkbox"
-                  checked={betaConsent}
-                  onChange={(event) => onBetaConsentChange(event.target.checked)}
-                />
-                <span>{t("beta.consent")}</span>
-              </label>
               <div className="home-how2play-row">
                 <button type="button" className="how2play-link" disabled={!homeAccessEnabled} onClick={() => setHow2playModalOpen(true)}>
                   {t("home.how2play")}

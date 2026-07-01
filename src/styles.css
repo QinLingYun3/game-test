@@ -492,7 +492,7 @@ button {
 
 .home-divider {
   height: 1px;
-  margin: 0;
+  margin: 10px 0;
   background: linear-gradient(90deg, transparent, rgba(255, 240, 208, 0.34), transparent);
 }
 
@@ -1400,13 +1400,14 @@ button {
 .beta-consent-row {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 8px;
   margin-top: 14px;
   font-size: 13px;
   color: rgba(244, 247, 241, 0.7);
   cursor: pointer;
   user-select: none;
+  width: 100%;
 }
 
 .beta-consent-row input[type="checkbox"] {
