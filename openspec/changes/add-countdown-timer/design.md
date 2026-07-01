@@ -43,8 +43,8 @@
 
 - **[Risk]** 倒计时 tick 与 React 渲染周期不完全同步，可能导致 1 秒内的视觉误差
   → **Mitigation**：使用 `setInterval` 每秒更新，UI 显示取 `Math.ceil(remaining)`，视觉误差在可接受范围内
-- **[Risk]** 跨关卡时间继承可能导致后期关卡时间过于充裕
-  → **Mitigation**：时间继承是设计意图，增加策略深度；后期关卡 tile 数量更多、难度更大，充裕的时间可以被更高难度消耗
+- **[Risk]** 跨关卡时间转化为分数后，玩家可能倾向于快速通关而非追求高 combo
+  → **Mitigation**：combo 本身也提供分数奖励，玩家需要在"快速通关拿时间分"和"叠 combo 拿 combo 分"之间做策略选择
 - **[Risk]** 低时间闪烁动画可能引发部分用户不适
   → **Mitigation**：动画幅度保持轻微（scale 1.05 + opacity 脉冲），不采用高频闪烁
 

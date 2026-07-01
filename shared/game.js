@@ -46,14 +46,23 @@ export let ROWS = BOARD_CONFIG.rows;
 export let COLS = BOARD_CONFIG.cols;
 export let LAYERS = BOARD_CONFIG.layers;
 export const SCORE_PER_MATCH = 100;
-export const COMBO_WINDOW_MS = 2000;
+
+export function getComboWindowMs(difficulty = "Easy") {
+  if (difficulty === "Hard") return 1800;
+  if (difficulty === "Medium") return 1400;
+  return 1000; // Easy and default
+}
 
 export function createComboTracker(playerIds) {
   return new Map(playerIds.map((id) => [id, { count: 0, lastClearedAt: 0 }]));
 }
 
-export function getScoreDeltaForCombo(comboCount) {
-  return Math.round(SCORE_PER_MATCH * 1.5 ** Math.max(0, comboCount));
+export function getScoreDeltaForCombo(comboCount, difficulty = "Easy") {
+  let multiplier;
+  if (difficulty === "Hard") multiplier = 1.6;
+  else if (difficulty === "Medium") multiplier = 1.3;
+  else multiplier = 1.1; // Easy and default
+  return Math.round(SCORE_PER_MATCH * multiplier ** Math.max(0, comboCount));
 }
 
 export function reloadLevelConfig(levelIndex = ACTIVE_LEVEL_INDEX) {
@@ -152,8 +161,21 @@ function createHeightMap(levelConfig = ACTIVE_LEVEL_CONFIG) {
   return levelConfig.heightMap.map((row) => [...row]);
 }
 
-function countHeightMapTiles(heights) {
+export function countHeightMapTiles(heights) {
   return heights.flat().reduce((sum, height) => sum + height, 0);
+}
+
+export function computeLevelCountdown(levelIndex = ACTIVE_LEVEL_INDEX) {
+  const config = getLevelConfig(levelIndex);
+  const heights = createHeightMap(config);
+  const totalTiles = countHeightMapTiles(heights);
+  return Math.round(totalTiles * 1.5);
+}
+
+export function getTimeBonusMultiplier(difficulty) {
+  if (difficulty === "Hard") return 200;
+  if (difficulty === "Medium") return 100;
+  return 50; // Easy and default
 }
 
 function assertEvenTileCount(heights, levelName = "unknown-level") {

@@ -4,7 +4,7 @@ import {
   ROWS,
   SCORE_PER_MATCH,
   TILE_TYPES,
-  COMBO_WINDOW_MS,
+  getComboWindowMs,
   countRemainingTiles,
   countRemovablePairs,
   createBoard,
@@ -18,7 +18,9 @@ import {
   reloadLevelConfig,
   removePair,
   reshuffleBoard,
-  LEVEL_CONFIGS
+  LEVEL_CONFIGS,
+  computeLevelCountdown,
+  getTimeBonusMultiplier
 } from "@shared/game.js";
 import {
   SUPPORTED_LANGUAGES,
@@ -32,6 +34,8 @@ import useMatchSound from "./useMatchSound.js";
 import useComboSound from "./useComboSound.js";
 import useBgm from "./useBgm.js";
 import useCountdownVoice from "./useCountdownVoice.js";
+import useCountdownBeep from "./useCountdownBeep.js";
+import useFinishSound from "./useFinishSound.js";
 
 const AVATAR_STORAGE_KEY = "match2-avatar-seed";
 const NICKNAME_STORAGE_KEY = "match2-nickname";
@@ -168,6 +172,7 @@ function createEmptyBoard() {
 function createSoloRoom(nickname, avatarSeed, language, levelIndex, difficulty = "default", options = {}) {
   const playerId = "solo-player";
   const board = createBoard();
+  const countdownTotal = computeLevelCountdown(levelIndex);
   return {
     code: "SOLO",
     phase: "game",
@@ -188,6 +193,8 @@ function createSoloRoom(nickname, avatarSeed, language, levelIndex, difficulty =
     startReveal: false,
     remainingTiles: countRemainingTiles(board),
     removablePairs: countRemovablePairs(board),
+    countdownTotal,
+    countdownRemaining: countdownTotal,
     you: {
       id: playerId,
       selection: null,
@@ -229,11 +236,11 @@ function getSoloLevelProgress(levelIndex, difficulty = "default") {
   };
 }
 
-function computeSoloCombo(comboTracker, playerId) {
+function computeSoloCombo(comboTracker, playerId, difficulty = "Easy") {
   const now = Date.now();
   const prev = comboTracker.get(playerId) ?? { count: 0, lastClearedAt: 0 };
-  const count = now - prev.lastClearedAt <= COMBO_WINDOW_MS && prev.lastClearedAt > 0 ? prev.count + 1 : 0;
-  const scoreDelta = getScoreDeltaForCombo(count);
+  const count = now - prev.lastClearedAt <= getComboWindowMs(difficulty) && prev.lastClearedAt > 0 ? prev.count + 1 : 0;
+  const scoreDelta = getScoreDeltaForCombo(count, difficulty);
   comboTracker.set(playerId, { count, lastClearedAt: now });
   return { count, scoreDelta, token: `${playerId}:${now}` };
 }
@@ -268,6 +275,32 @@ function getChaosIcons(realType) {
     .slice(0, 3)
     .map((t) => t.icon);
   return [TILE_TYPES.find((t) => t.key === realType).icon, ...shuffled];
+}
+
+function CountdownCard({ total, remaining, t }) {
+  const ratio = total > 0 ? Math.max(0, Math.min(1, remaining / total)) : 0;
+  const displayValue = Math.max(0, Math.ceil(remaining));
+  const isLow = displayValue <= 10;
+
+  // Interpolate from bright orange (#ff8c00) to vivid red (#ff2a2a)
+  const r = Math.round(255);
+  const g = Math.round(140 + (42 - 140) * (1 - ratio));
+  const b = Math.round(0 + (42 - 0) * (1 - ratio));
+  const bgColor = `rgb(${r}, ${g}, ${b})`;
+
+  return (
+    <div
+      className={`player-card countdown-card${isLow ? " countdown-low" : ""}`}
+      aria-label={t("game.timeLeftLabel")}
+      style={{ "--countdown-bg": bgColor, "--countdown-ratio": ratio }}
+    >
+      <span className="countdown-card-label">{t("game.timeLeftLabel")}</span>
+      <span className="countdown-card-count">{displayValue}</span>
+      <div className="countdown-progress-bar">
+        <div className="countdown-progress-fill" style={{ width: `${ratio * 100}%` }} />
+      </div>
+    </div>
+  );
 }
 
 function FeverDisplay({ active, t }) {
@@ -849,12 +882,18 @@ function App() {
   // Sound: play combo.mp3 when combo occurs (count >= 2)
   const playComboSound = useComboSound(room?.lastCombo?.token ?? null);
 
-  // Background music: loop happy.mp3 continuously from homepage
-  const bgmPlaying = true;
+  // Background music: loop happy.mp3 continuously, pause on results screen
+  const bgmPlaying = room?.phase !== "results";
   useBgm({ playing: bgmPlaying, volume: 0.4 });
 
   // English countdown voice: speak 3, 2, 1, Go! during game start countdown
   const speakCountdown = useCountdownVoice();
+
+  // Countdown beep: play beep_low.mp3 when solo countdown ≤ 10 seconds
+  useCountdownBeep(room?.countdownRemaining);
+
+  // Finish sound: play finish.mp3 when entering results phase
+  useFinishSound(room?.phase);
 
   // Listen for countdown changes and speak the number
   useEffect(() => {
@@ -889,6 +928,32 @@ function App() {
     }
     return undefined;
   }, [room?.startReveal, room?.code]);
+
+  // Solo mode countdown tick
+  useEffect(() => {
+    if (room?.code !== "SOLO" || room?.phase !== "game") return undefined;
+    if (room?.startCountdown != null || room?.startReveal || room?.reshuffleCountdown || soloReshufflePending) return undefined;
+    if ((room?.countdownRemaining ?? 0) <= 0) return undefined;
+
+    const timer = setInterval(() => {
+      setRoom((prev) => {
+        if (!prev || prev.code !== "SOLO" || prev.phase !== "game") return prev;
+        if (prev.startCountdown != null || prev.startReveal || prev.reshuffleCountdown || soloReshufflePending) return prev;
+        const remaining = (prev.countdownRemaining ?? 0) - 1;
+        if (remaining <= 0) {
+          // Time's up — transition to results
+          return {
+            ...prev,
+            countdownRemaining: 0,
+            phase: "results",
+            message: createMessage("server.gameFinished")
+          };
+        }
+        return { ...prev, countdownRemaining: remaining };
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [room?.code, room?.phase, room?.startCountdown, room?.startReveal, room?.reshuffleCountdown, soloReshufflePending]);
 
   useEffect(() => {
     if (room?.lastMatch?.path) {
@@ -1214,6 +1279,8 @@ function App() {
         const nextComboTracker = new Map(currentRoom.comboTracker);
         nextComboTracker.set(playerId, { count: 0, lastClearedAt: 0 });
         const nextPlayers = currentRoom.players;
+        const quickMatchPenalty = 4;
+        const baseRemaining = Math.max(0, (currentRoom.countdownRemaining ?? 0) - quickMatchPenalty);
         if (!hasAnyMoves(nextBoard) && !isBoardCleared(nextBoard)) {
           const reshuffled = reshuffleBoard(nextBoard);
           return {
@@ -1227,6 +1294,7 @@ function App() {
             lastMatch: { by: playerId, pair, path, tile, depths, token: `solo:${Date.now()}:quick` },
             lastCombo: null,
             phase: "game",
+            countdownRemaining: baseRemaining,
             you: { ...currentRoom.you, selection: null }
           };
         }
@@ -1238,12 +1306,19 @@ function App() {
           const freshBoard = createBoard();
           const currentProgress = getSoloLevelProgress(currentRoom.levelIndex, currentSoloDifficulty);
           const nextProgress = getSoloLevelProgress(nextIdx, currentSoloDifficulty);
+          const nextLevelTotal = computeLevelCountdown(nextIdx);
+          const currentLevelDifficulty = LEVEL_CONFIGS[currentRoom.levelIndex]?.difficulty ?? "Easy";
+          const timeBonusMultiplier = getTimeBonusMultiplier(currentLevelDifficulty);
+          const timeBonusScore = Math.max(0, baseRemaining) * timeBonusMultiplier;
+          const playersWithTimeBonus = nextPlayers.map((player) =>
+            player.id === playerId ? { ...player, score: player.score + timeBonusScore } : player
+          );
           return {
             ...currentRoom,
             comboTracker: nextComboTracker,
             board: freshBoard,
             levelIndex: nextIdx,
-            players: nextPlayers,
+            players: playersWithTimeBonus,
             remainingTiles: countRemainingTiles(freshBoard),
             removablePairs: countRemovablePairs(freshBoard),
             message: createMessage("solo.levelComplete", { current: currentProgress.current, next: nextProgress.current }),
@@ -1252,6 +1327,8 @@ function App() {
             phase: "game",
             startCountdown: 3,
             startReveal: false,
+            countdownTotal: nextLevelTotal,
+            countdownRemaining: nextLevelTotal,
             you: { ...currentRoom.you, selection: null }
           };
         }
@@ -1266,6 +1343,7 @@ function App() {
           lastMatch: { by: playerId, pair, path, tile, depths, token: `solo:${Date.now()}:quick` },
           lastCombo: null,
           phase: cleared ? "results" : "game",
+          countdownRemaining: baseRemaining,
           you: { ...currentRoom.you, selection: null }
         };
       });
@@ -1364,11 +1442,16 @@ function App() {
         const nextBoard = removePair(currentRoom.board, current, nextPosition);
         const isSolo = currentRoom.code === "SOLO";
         const nextComboTracker = new Map(currentRoom.comboTracker);
-        const combo = isSolo ? computeSoloCombo(nextComboTracker, playerId) : null;
+        const currentLevelDifficulty = isSolo ? (LEVEL_CONFIGS[currentRoom.levelIndex]?.difficulty ?? "Easy") : "Easy";
+        const combo = isSolo ? computeSoloCombo(nextComboTracker, playerId, currentLevelDifficulty) : null;
         const scoreDelta = combo?.scoreDelta ?? SCORE_PER_MATCH;
         const nextPlayers = currentRoom.players.map((player) =>
           player.id === playerId ? { ...player, score: player.score + scoreDelta, maxCombo: isSolo ? Math.max(player.maxCombo ?? 0, combo.count) : player.maxCombo } : player
         );
+        const comboTimeBonus = isSolo && combo.count >= 1 ? 2 : 0;
+        const nextCountdownRemaining = isSolo
+          ? Math.max(0, (currentRoom.countdownRemaining ?? 0) + comboTimeBonus)
+          : currentRoom.countdownRemaining;
 
         if (!hasAnyMoves(nextBoard) && !isBoardCleared(nextBoard)) {
           const reshuffled = reshuffleBoard(nextBoard);
@@ -1390,6 +1473,7 @@ function App() {
             },
             lastCombo: isSolo ? { by: playerId, count: combo.count, scoreDelta: combo.scoreDelta, token: combo.token } : undefined,
             phase: "game",
+            countdownRemaining: nextCountdownRemaining,
             you: { ...currentRoom.you, selection: null }
           };
         }
@@ -1403,12 +1487,19 @@ function App() {
           const freshBoard = createBoard();
           const currentProgress = getSoloLevelProgress(currentRoom.levelIndex, currentSoloDifficulty);
           const nextProgress = getSoloLevelProgress(nextIdx, currentSoloDifficulty);
+          const nextLevelTotal = computeLevelCountdown(nextIdx);
+          const currentLevelDifficulty = LEVEL_CONFIGS[currentRoom.levelIndex]?.difficulty ?? "Easy";
+          const timeBonusMultiplier = getTimeBonusMultiplier(currentLevelDifficulty);
+          const timeBonusScore = Math.max(0, nextCountdownRemaining) * timeBonusMultiplier;
+          const playersWithTimeBonus = nextPlayers.map((player) =>
+            player.id === playerId ? { ...player, score: player.score + timeBonusScore } : player
+          );
           return {
             ...currentRoom,
             comboTracker: nextComboTracker,
             board: freshBoard,
             levelIndex: nextIdx,
-            players: nextPlayers,
+            players: playersWithTimeBonus,
             remainingTiles: countRemainingTiles(freshBoard),
             removablePairs: countRemovablePairs(freshBoard),
             message: createMessage("solo.levelComplete", {
@@ -1427,6 +1518,8 @@ function App() {
             phase: "game",
             startCountdown: 3,
             startReveal: false,
+            countdownTotal: nextLevelTotal,
+            countdownRemaining: nextLevelTotal,
             you: { ...currentRoom.you, selection: null }
           };
         }
@@ -1449,6 +1542,7 @@ function App() {
           },
           lastCombo: isSolo ? { by: playerId, count: combo.count, scoreDelta: combo.scoreDelta, token: combo.token } : undefined,
           phase: cleared ? "results" : "game",
+          countdownRemaining: nextCountdownRemaining,
           you: { ...currentRoom.you, selection: null }
         };
       });
@@ -1602,7 +1696,6 @@ function App() {
                   </select>
                   {soloDifficulty !== "default" && (
                     <>
-                      <span className="mode-label" style={{ marginLeft: "12px" }}>{t("home.levelLabel")}</span>
                       <select
                         className="level-pick-select"
                         value={soloLevelPick}
@@ -1788,6 +1881,13 @@ function App() {
 
             <div className="game-main">
               <aside className="players-panel">
+                {room?.code === "SOLO" && (
+                  <CountdownCard
+                    total={room?.countdownTotal ?? 0}
+                    remaining={room?.countdownRemaining ?? 0}
+                    t={t}
+                  />
+                )}
                 <div className="player-card removable-card" aria-label={t("game.countPill", { count: room.removablePairs ?? 0 })}>
                   <span className="removable-card-label">{t("game.removableLabel")}</span>
                   <span className="removable-card-count">{room.removablePairs ?? 0}</span>
@@ -2268,6 +2368,14 @@ function App() {
                     }}
                   >
                     {t("results.playAgain")}
+                  </button>
+                  <button
+                    className="secondary-btn"
+                    onClick={() => {
+                      window.location.reload();
+                    }}
+                  >
+                    {t("results.backToHome")}
                   </button>
                 </div>
               )}
