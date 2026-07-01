@@ -38,6 +38,8 @@ const NICKNAME_STORAGE_KEY = "match2-nickname";
 const AVATAR_EDIT_BATCH_SIZE = 9;
 const AVATAR_SEED_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const MAX_PLAYERS = 4;
+const ITEM_DOUBLE_CLICK_WINDOW_MS = 500;
+const SOLO_RESHUFFLE_MIN_DISPLAY_MS = 1000;
 
 function randomAvatarSeed(length = 10) {
   return Array.from({ length }, () => AVATAR_SEED_CHARS[Math.floor(Math.random() * AVATAR_SEED_CHARS.length)]).join("");
@@ -698,6 +700,7 @@ function App() {
   const pendingRequestsRef = useRef(new Map());
   const soloSubmitLocksRef = useRef(new Set());
   const previousRoomRef = useRef(null);
+  const lastSoloReshuffleClickAtRef = useRef(0);
   const [room, setRoom] = useState(() =>
     previewRuleMode
       ? createLayerRuleTestRoom(loadPreferredLanguage())
@@ -726,6 +729,7 @@ function App() {
   const [smokeFading, setSmokeFading] = useState(false);
   const [chaosEffect, setChaosEffect] = useState(null);
   const [feverEffect, setFeverEffect] = useState(null);
+  const [soloReshufflePending, setSoloReshufflePending] = useState(null);
   const [dragOverTarget, setDragOverTarget] = useState(null);
   const playerCardRefs = useRef(new Map());
   const previousPlayerPositionsRef = useRef(new Map());
@@ -1272,23 +1276,38 @@ function App() {
 
   function onUseSoloReshuffle() {
     if (room?.code !== "SOLO") return;
-    if ((room?.removablePairs ?? 0) === 0 || room?.fever?.active || feverEffect?.active) return;
+    if (soloReshufflePending) return;
+    if (room?.fever?.active || feverEffect?.active) return;
     if (room?.phase !== "game" || room?.startCountdown || room?.startReveal || room?.reshuffleCountdown) return;
-    setRoom((currentRoom) => {
-      if (!currentRoom || currentRoom.code !== "SOLO") return currentRoom;
-      if (currentRoom.reshuffleCountdown) return currentRoom;
-      const reshuffled = reshuffleBoard(currentRoom.board);
-      return {
-        ...currentRoom,
-        board: reshuffled,
-        remainingTiles: countRemainingTiles(reshuffled),
-        removablePairs: countRemovablePairs(reshuffled),
-        message: createMessage("server.boardReshuffled"),
-        lastMatch: null,
-        lastCombo: null,
-        you: { ...currentRoom.you, selection: null }
-      };
-    });
+    setSoloReshufflePending({ startedAt: Date.now() });
+    window.setTimeout(() => {
+      setRoom((currentRoom) => {
+        if (!currentRoom || currentRoom.code !== "SOLO") return currentRoom;
+        if (currentRoom.reshuffleCountdown) return currentRoom;
+        const reshuffled = reshuffleBoard(currentRoom.board);
+        return {
+          ...currentRoom,
+          board: reshuffled,
+          remainingTiles: countRemainingTiles(reshuffled),
+          removablePairs: countRemovablePairs(reshuffled),
+          message: createMessage("server.boardReshuffled"),
+          lastMatch: null,
+          lastCombo: null,
+          you: { ...currentRoom.you, selection: null }
+        };
+      });
+      setSoloReshufflePending(null);
+    }, SOLO_RESHUFFLE_MIN_DISPLAY_MS);
+  }
+
+  function onSoloReshuffleClick() {
+    const now = Date.now();
+    if (now - lastSoloReshuffleClickAtRef.current > ITEM_DOUBLE_CLICK_WINDOW_MS) {
+      lastSoloReshuffleClickAtRef.current = now;
+      return;
+    }
+    lastSoloReshuffleClickAtRef.current = 0;
+    onUseSoloReshuffle();
   }
 
   async function onCopyRoomCode(code) {
@@ -1763,17 +1782,16 @@ function App() {
                   t={t}
                 />
               </div>
-              <div className="topbar-status">
-                <div className="removable-orb" aria-label={t("game.countPill", { count: room.removablePairs ?? 0 })}>
-                  <span className="removable-orb-count">{room.removablePairs ?? 0}</span>
-                  <span className="removable-orb-label">{t("game.removableLabel")}</span>
-                </div>
-                {reshuffling && <span className="info-pill warning">{t("game.reshuffleCountdown", { count: room.reshuffleCountdown })}</span>}
-              </div>
+              {reshuffling && <span className="info-pill warning">{t("game.reshuffleCountdown", { count: room.reshuffleCountdown })}</span>}
             </div>
 
             <div className="game-main">
               <aside className="players-panel">
+                <div className="player-card removable-card" aria-label={t("game.countPill", { count: room.removablePairs ?? 0 })}>
+                  <span className="removable-card-label">{t("game.removableLabel")}</span>
+                  <span className="removable-card-count">{room.removablePairs ?? 0}</span>
+                </div>
+                <div className="players-divider" aria-hidden="true" />
                 <div className="players-column">
                   {ranking.map((player, index) => (
                     <article
@@ -1909,8 +1927,8 @@ function App() {
                     <div className="item-slot">
                       <div className="item-tooltip">
                         <div
-                          className={`item-icon reshuffle-icon${(room?.removablePairs ?? 0) === 0 || room?.fever?.active || feverEffect?.active ? " disabled" : ""}`}
-                          onDoubleClick={onUseSoloReshuffle}
+                          className={`item-icon reshuffle-icon${room?.fever?.active || feverEffect?.active || soloReshufflePending ? " disabled" : ""}`}
+                          onClick={onSoloReshuffleClick}
                         >
                           🔄
                           <span className="item-count-badge">♾️</span>
@@ -2116,11 +2134,17 @@ function App() {
               </div>
             )}
 
-            {reshuffling && (
+            {(reshuffling || soloReshufflePending) && (
               <div className="reshuffle-modal">
                 <div className="reshuffle-modal-card">
-                  <p>{t("game.reshuffleModal")}</p>
-                  <span>{t("game.reshuffleCountdown", { count: room.reshuffleCountdown })}</span>
+                  {soloReshufflePending ? (
+                    <p>{t("game.soloReshuffling")}</p>
+                  ) : (
+                    <>
+                      <p>{t("game.reshuffleModal")}</p>
+                      <span>{t("game.reshuffleCountdown", { count: room.reshuffleCountdown })}</span>
+                    </>
+                  )}
                 </div>
               </div>
             )}
