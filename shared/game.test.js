@@ -75,6 +75,38 @@ test("reshuffle keeps the board playable when moves exist after refresh", () => 
   assert.equal(hasAnyMoves(nextBoard), true);
 });
 
+test("reshuffle recovers a dead board into a playable one", () => {
+  const board = emptyBoard();
+  board[1][1] = [tile("a1", "b")];
+  board[1][2] = [tile("a2", "a")];
+  board[1][3] = [tile("a3", "c")];
+  board[2][1] = [tile("a4", "d")];
+  board[2][2] = [tile("a5", "b")];
+  board[2][3] = [tile("a6", "a")];
+  board[3][1] = [tile("a7", "c")];
+  board[3][2] = [tile("a8", "d")];
+
+  assert.equal(hasAnyMoves(board), false);
+  assert.equal(countRemovablePairs(board), 0);
+
+  const nextBoard = reshuffleBoard(board, 12345);
+  assert.equal(hasAnyMoves(nextBoard), true);
+  assert.ok(countRemovablePairs(nextBoard) > 0);
+});
+
+test("reshuffle changes arrangement when an alternative playable layout exists", () => {
+  const board = emptyBoard();
+  board[0][0] = [tile("a1", "dog")];
+  board[0][1] = [tile("a2", "cat")];
+  board[1][0] = [tile("a3", "cat")];
+  board[1][1] = [tile("a4", "dog")];
+
+  const nextBoard = reshuffleBoard(board, 12345);
+
+  assert.notDeepEqual(nextBoard, board);
+  assert.equal(hasAnyMoves(nextBoard), true);
+});
+
 test("countRemovablePairs reports available matches", () => {
   const board = emptyBoard();
   board[0][0] = [tile("left", "dog")];

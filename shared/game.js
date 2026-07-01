@@ -216,6 +216,29 @@ function hasDuplicateTileTypesInAnyCell(board) {
   );
 }
 
+function hasSameArrangement(leftBoard, rightBoard) {
+  if (leftBoard === rightBoard) return true;
+  if (!Array.isArray(leftBoard) || !Array.isArray(rightBoard) || leftBoard.length !== rightBoard.length) return false;
+
+  for (let row = 0; row < leftBoard.length; row += 1) {
+    const leftRow = leftBoard[row];
+    const rightRow = rightBoard[row];
+    if (!Array.isArray(leftRow) || !Array.isArray(rightRow) || leftRow.length !== rightRow.length) return false;
+
+    for (let col = 0; col < leftRow.length; col += 1) {
+      const leftCell = leftRow[col];
+      const rightCell = rightRow[col];
+      if (!Array.isArray(leftCell) || !Array.isArray(rightCell) || leftCell.length !== rightCell.length) return false;
+
+      for (let layer = 0; layer < leftCell.length; layer += 1) {
+        if (leftCell[layer]?.id !== rightCell[layer]?.id) return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 export function getTopTile(board, row, col) {
   return topTile(board[row]?.[col] ?? []);
 }
@@ -546,20 +569,40 @@ export function createBoard(seed = Date.now()) {
 }
 
 export function reshuffleBoard(board, seed = Date.now()) {
-  const random = createRng(seed);
   const heights = stackHeights(board);
   const tiles = board.flat().flat();
-  let attempt = 0;
 
-  while (attempt < 100) {
-    const nextBoard = refillBoardWithHeights(tiles, heights, random);
-    if (
-      !hasDuplicateTileTypesInAnyCell(nextBoard) &&
-      (countRemainingTiles(nextBoard) === 0 || hasAnyMoves(nextBoard))
-    ) {
-      return nextBoard;
+  for (let outer = 0; outer < 20; outer += 1) {
+    const random = createRng(seed + outer);
+    let attempt = 0;
+
+    while (attempt < 200) {
+      const nextBoard = refillBoardWithHeights(tiles, heights, random);
+      if (
+        !hasSameArrangement(nextBoard, board) &&
+        !hasDuplicateTileTypesInAnyCell(nextBoard) &&
+        (countRemainingTiles(nextBoard) === 0 || hasAnyMoves(nextBoard))
+      ) {
+        return nextBoard;
+      }
+      attempt += 1;
     }
-    attempt += 1;
+  }
+
+  for (let outer = 0; outer < 20; outer += 1) {
+    const random = createRng(seed + 1000 + outer);
+    let attempt = 0;
+
+    while (attempt < 200) {
+      const nextBoard = refillBoardWithHeights(tiles, heights, random);
+      if (
+        !hasSameArrangement(nextBoard, board) &&
+        (countRemainingTiles(nextBoard) === 0 || hasAnyMoves(nextBoard))
+      ) {
+        return nextBoard;
+      }
+      attempt += 1;
+    }
   }
 
   return board;
