@@ -142,9 +142,28 @@ function queueLeaderboardPersist() {
   return leaderboardWriteChain;
 }
 
-function getLeaderboardPayload() {
+function getPeriodStart(period) {
+  const now = new Date();
+  if (period === "daily") {
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  }
+  if (period === "weekly") {
+    const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday
+    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday);
+    return monday.getTime();
+  }
+  if (period === "monthly") {
+    return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  }
+  return 0;
+}
+
+function getLeaderboardPayload(period = "all") {
+  const periodStart = period !== "all" ? getPeriodStart(period) : 0;
   return soloLeaderboard
     .slice()
+    .filter((entry) => period === "all" || entry.submittedAt >= periodStart)
     .sort(compareLeaderboardEntries)
     .slice(0, LEADERBOARD_LIMIT)
     .map((entry, index) => ({
@@ -365,9 +384,11 @@ wss.on("connection", (socket) => {
       }
 
       if (type === "get_leaderboard") {
+        const validPeriods = new Set(["daily", "weekly", "monthly", "all"]);
+        const period = validPeriods.has(payload?.period) ? payload.period : "all";
         return send(socket, "leaderboard_state", {
           clientRequestId: payload?.clientRequestId ?? null,
-          entries: getLeaderboardPayload()
+          entries: getLeaderboardPayload(period)
         });
       }
 

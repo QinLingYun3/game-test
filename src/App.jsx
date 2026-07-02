@@ -734,6 +734,7 @@ function App() {
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [leaderboardEntries, setLeaderboardEntries] = useState([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardPeriod, setLeaderboardPeriod] = useState("daily");
   const [avatarOptions, setAvatarOptions] = useState(() => createAvatarBatch());
   const [playerId, setPlayerId] = useState(previewMode ? "preview-player" : "");
   const pendingRequestsRef = useRef(new Map());
@@ -1202,11 +1203,11 @@ function App() {
     }
   }
 
-  async function loadLeaderboard() {
+  async function loadLeaderboard(period = "all") {
     if (previewMode) return;
     setLeaderboardLoading(true);
     try {
-      const result = await sendRequest("get_leaderboard", {}, "leaderboard_state");
+      const result = await sendRequest("get_leaderboard", { period }, "leaderboard_state");
       setLeaderboardEntries(result?.entries ?? []);
     } catch {
       setError(createMessage("error.serverNotReady"));
@@ -1789,7 +1790,8 @@ function App() {
                   disabled={!homeAccessEnabled}
                   onClick={() => {
                     setLeaderboardOpen(true);
-                    void loadLeaderboard();
+                    setLeaderboardPeriod("daily");
+                    void loadLeaderboard("daily");
                   }}
                 >
                   {t("home.leaderboard")}
@@ -2448,6 +2450,28 @@ function App() {
               </button>
               <div className="leaderboard-header">
                 <h3>{t("leaderboard.title")}</h3>
+              </div>
+              <div className="leaderboard-tabs">
+                {[
+                  { key: "daily", label: t("leaderboard.daily") },
+                  { key: "weekly", label: t("leaderboard.weekly") },
+                  { key: "monthly", label: t("leaderboard.monthly") },
+                  { key: "all", label: t("leaderboard.allTime") }
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    className={`leaderboard-tab${leaderboardPeriod === tab.key ? " active" : ""}`}
+                    onClick={() => {
+                      if (leaderboardPeriod !== tab.key) {
+                        setLeaderboardPeriod(tab.key);
+                        void loadLeaderboard(tab.key);
+                      }
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
               <div className="leaderboard-list">
                 {leaderboardLoading && <p className="leaderboard-empty">{t("leaderboard.loading")}</p>}
