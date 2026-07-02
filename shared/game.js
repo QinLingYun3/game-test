@@ -46,14 +46,54 @@ export let ROWS = BOARD_CONFIG.rows;
 export let COLS = BOARD_CONFIG.cols;
 export let LAYERS = BOARD_CONFIG.layers;
 export const SCORE_PER_MATCH = 100;
-export const COMBO_WINDOW_MS = 2000;
+
+// Combo window constants (ms)
+export const COMBO_WINDOW_EASY_MS = 1000;
+export const COMBO_WINDOW_MEDIUM_MS = 1400;
+export const COMBO_WINDOW_HARD_MS = 1800;
+
+// Combo score multipliers
+export const COMBO_MULTIPLIER_EASY = 1.1;
+export const COMBO_MULTIPLIER_MEDIUM = 1.3;
+export const COMBO_MULTIPLIER_HARD = 1.5;
+
+// Countdown seconds per tile
+export const COUNTDOWN_SECONDS_PER_TILE_EASY = 0.9;
+export const COUNTDOWN_SECONDS_PER_TILE_MEDIUM = 1.2;
+export const COUNTDOWN_SECONDS_PER_TILE_HARD = 1.5;
+
+// Time bonus per remaining second (points)
+export const TIME_BONUS_PER_SECOND_EASY = 50;
+export const TIME_BONUS_PER_SECOND_MEDIUM = 100;
+export const TIME_BONUS_PER_SECOND_HARD = 200;
+
+// Combo time bonus (seconds added per combo)
+export const COMBO_TIME_BONUS_EASY = 1;
+export const COMBO_TIME_BONUS_MEDIUM = 1.5;
+export const COMBO_TIME_BONUS_HARD = 2;
+
+export function getComboTimeBonus(difficulty = "Easy") {
+  if (difficulty === "Hard") return COMBO_TIME_BONUS_HARD;
+  if (difficulty === "Medium") return COMBO_TIME_BONUS_MEDIUM;
+  return COMBO_TIME_BONUS_EASY;
+}
+
+export function getComboWindowMs(difficulty = "Easy") {
+  if (difficulty === "Hard") return COMBO_WINDOW_HARD_MS;
+  if (difficulty === "Medium") return COMBO_WINDOW_MEDIUM_MS;
+  return COMBO_WINDOW_EASY_MS;
+}
 
 export function createComboTracker(playerIds) {
   return new Map(playerIds.map((id) => [id, { count: 0, lastClearedAt: 0 }]));
 }
 
-export function getScoreDeltaForCombo(comboCount) {
-  return Math.round(SCORE_PER_MATCH * 1.5 ** Math.max(0, comboCount));
+export function getScoreDeltaForCombo(comboCount, difficulty = "Easy") {
+  let multiplier;
+  if (difficulty === "Hard") multiplier = COMBO_MULTIPLIER_HARD;
+  else if (difficulty === "Medium") multiplier = COMBO_MULTIPLIER_MEDIUM;
+  else multiplier = COMBO_MULTIPLIER_EASY;
+  return Math.ceil(SCORE_PER_MATCH * multiplier ** Math.max(0, comboCount));
 }
 
 export function reloadLevelConfig(levelIndex = ACTIVE_LEVEL_INDEX) {
@@ -87,7 +127,21 @@ export const TILE_TYPES = [
   { key: "cow", icon: "🐮" },
   { key: "mouse", icon: "🐭" },
   { key: "chick", icon: "🐥" },
-  { key: "wolf", icon: "🐺" }
+  { key: "wolf", icon: "🐺" },
+  { key: "evergreen_tree", icon: "🌲" },
+  { key: "deciduous_tree", icon: "🌳" },
+  { key: "palm_tree", icon: "🌴" },
+  { key: "cactus", icon: "🌵" },
+  { key: "tulip", icon: "🌷" },
+  { key: "cherry_blossom", icon: "🌸" },
+  { key: "sun", icon: "☀️" },
+  { key: "cloud", icon: "☁️" },
+  { key: "sunflower", icon: "🌻" },
+  { key: "blossom", icon: "🌼" },
+  { key: "four_leaf_clover", icon: "🍀" },
+  { key: "maple_leaf", icon: "🍁" },
+  { key: "mushroom", icon: "🍄" },
+  { key: "herb", icon: "🌿" }
 ];
 
 function createRng(seed = Date.now()) {
@@ -152,8 +206,25 @@ function createHeightMap(levelConfig = ACTIVE_LEVEL_CONFIG) {
   return levelConfig.heightMap.map((row) => [...row]);
 }
 
-function countHeightMapTiles(heights) {
+export function countHeightMapTiles(heights) {
   return heights.flat().reduce((sum, height) => sum + height, 0);
+}
+
+export function computeLevelCountdown(levelIndex = ACTIVE_LEVEL_INDEX) {
+  const config = getLevelConfig(levelIndex);
+  const heights = createHeightMap(config);
+  const totalTiles = countHeightMapTiles(heights);
+  let secondsPerTile;
+  if (config.difficulty === "Hard") secondsPerTile = COUNTDOWN_SECONDS_PER_TILE_HARD;
+  else if (config.difficulty === "Medium") secondsPerTile = COUNTDOWN_SECONDS_PER_TILE_MEDIUM;
+  else secondsPerTile = COUNTDOWN_SECONDS_PER_TILE_EASY;
+  return totalTiles * secondsPerTile;
+}
+
+export function getTimeBonusMultiplier(difficulty) {
+  if (difficulty === "Hard") return TIME_BONUS_PER_SECOND_HARD;
+  if (difficulty === "Medium") return TIME_BONUS_PER_SECOND_MEDIUM;
+  return TIME_BONUS_PER_SECOND_EASY;
 }
 
 function assertEvenTileCount(heights, levelName = "unknown-level") {
@@ -170,11 +241,14 @@ function validateLevelConfigs(levelConfigs = LEVEL_CONFIGS) {
   });
 }
 
-function generateTiles(heights, tileTypeCount = TILE_TYPES.length) {
+function generateTiles(heights, tileTypeCount = TILE_TYPES.length, random) {
   const pairCount = assertEvenTileCount(heights) / 2;
+  const shuffledTypes = shuffle(TILE_TYPES, random);
+  const availableTypes = shuffledTypes.slice(0, tileTypeCount);
   const tiles = [];
   for (let index = 0; index < pairCount; index += 1) {
-    const tileType = TILE_TYPES[index % tileTypeCount];
+    const typeIndex = Math.floor(random() * availableTypes.length);
+    const tileType = availableTypes[typeIndex];
     tiles.push(
       { id: `tile-${index}-a`, type: tileType.key, icon: tileType.icon },
       { id: `tile-${index}-b`, type: tileType.key, icon: tileType.icon }
@@ -540,7 +614,7 @@ export function createBoard(seed = Date.now()) {
     const random = createRng(seed + outer);
     const heights = createHeightMap();
     const tileTypeCount = ACTIVE_LEVEL_CONFIG.tileTypes ?? 6;
-    const tiles = generateTiles(heights, tileTypeCount);
+    const tiles = generateTiles(heights, tileTypeCount, random);
     let attempt = 0;
 
     while (attempt < 200) {
@@ -555,7 +629,7 @@ export function createBoard(seed = Date.now()) {
     const random = createRng(seed + 1000 + outer);
     const heights = createHeightMap();
     const tileTypeCount = ACTIVE_LEVEL_CONFIG.tileTypes ?? 6;
-    const tiles = generateTiles(heights, tileTypeCount);
+    const tiles = generateTiles(heights, tileTypeCount, random);
     let attempt = 0;
 
     while (attempt < 200) {

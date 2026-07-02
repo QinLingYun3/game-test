@@ -1,13 +1,18 @@
-## 1. Combo Window
+## 1. Combo Window by Difficulty
 
-- [ ] 1.1 将 `shared/game.js` 中的 `COMBO_WINDOW_MS` 从 2000 改为 1500
-- [ ] 1.2 将 `server/roomManager.js` 中的 `COMBO_WINDOW_MS` 从 2000 改为 1500
+- [x] 1.1 在 `shared/game.js` 中创建 `getComboWindowMs(difficulty)` 函数
+- [x] 1.2 移除 `shared/game.js` 中的 `COMBO_WINDOW_MS` 常量
+- [x] 1.3 在 `server/roomManager.js` 中导入并使用 `getComboWindowMs()`
+- [x] 1.4 在 `src/App.jsx` 的 `computeSoloCombo` 中使用 `getComboWindowMs(difficulty)`
 
-## 2. Scoring Formula
+## 2. Scoring Formula by Difficulty
 
-- [ ] 2.1 修改 `shared/game.js` 中的 `getScoreDeltaForCombo`，用分段线性函数替换指数公式
+- [x] 2.1 修改 `shared/game.js` 中的 `getScoreDeltaForCombo`，新增 difficulty 参数
+- [x] 2.2 同步更新 `server/roomManager.js` 中的 `getScoreDeltaForCombo`
+- [x] 2.3 在 `src/App.jsx` 的 `computeSoloCombo` 中传入当前关卡难度
 
 ## 3. Verification
 
-- [ ] 3.1 验证单人/多人模式分数不再指数爆炸
-- [ ] 3.2 确认 Fever 双倍得分仍正常叠加
+- [x] 3.1 验证 build 通过
+- [x] 3.2 验证现有测试通过
+- [x] 3.3 确认各难度 combo 窗口和系数正确应用

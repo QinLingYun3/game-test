@@ -3,7 +3,7 @@ export default [
     "id": "level-easy-1-line",
     "name": "Level 1 Straight Line",
     "difficulty": "Easy",
-    "tileTypes": 4,
+    "tileTypes": 5,
     "heightMap": [
       [1, 1, 1, 1, 1, 1],
       [1, 1, 1, 1, 1, 1],
@@ -17,7 +17,7 @@ export default [
     "id": "level-easy-2-cross",
     "name": "Level 2 Simple Cross",
     "difficulty": "Easy",
-    "tileTypes": 4,
+    "tileTypes": 5,
     "heightMap": [
       [0, 0, 1, 1, 0, 0],
       [0, 0, 1, 1, 0, 0],
@@ -61,7 +61,7 @@ export default [
     "id": "level-easy-5-donut",
     "name": "Level 5 Donut Circle",
     "difficulty": "Easy",
-    "tileTypes": 5,
+    "tileTypes": 6,
     "heightMap": [
       [0, 0, 1, 1, 1, 0, 0],
       [0, 1, 1, 1, 1, 1, 0],
@@ -76,7 +76,7 @@ export default [
     "id": "level-easy-6-stairs",
     "name": "Level 6 Low Stairs",
     "difficulty": "Easy",
-    "tileTypes": 5,
+    "tileTypes": 6,
     "heightMap": [
       [1, 1, 1, 1, 1, 1, 1, 1],
       [1, 1, 1, 1, 1, 1, 1, 1],
@@ -124,7 +124,7 @@ export default [
     "id": "level-easy-9-corners",
     "name": "Level 9 Four Corners",
     "difficulty": "Easy",
-    "tileTypes": 6,
+    "tileTypes": 7,
     "heightMap": [
       [2, 2, 1, 0, 0, 1, 2, 2],
       [2, 2, 1, 0, 0, 1, 2, 2],
@@ -140,7 +140,7 @@ export default [
     "id": "level-easy-10-triangle",
     "name": "Level 10 Small Triangle",
     "difficulty": "Easy",
-    "tileTypes": 6,
+    "tileTypes": 7,
     "heightMap": [
       [0, 0, 0, 1, 1, 0, 0, 0, 0],
       [0, 0, 1, 1, 1, 1, 0, 0, 0],
@@ -157,7 +157,7 @@ export default [
     "id": "level-medium-11-clover",
     "name": "Level 11 Clover Leaf",
     "difficulty": "Medium",
-    "tileTypes": 7,
+    "tileTypes": 8,
     "heightMap": [
       [0, 0, 1, 1, 0, 1, 1, 0, 0],
       [0, 1, 2, 2, 1, 2, 2, 1, 0],
@@ -174,7 +174,7 @@ export default [
     "id": "level-medium-12-diamond",
     "name": "Level 12 Diamond Ring",
     "difficulty": "Medium",
-    "tileTypes": 7,
+    "tileTypes": 8,
     "heightMap": [
       [0, 0, 0, 0, 1, 0, 0, 0, 0],
       [0, 0, 0, 1, 2, 1, 0, 0, 0],
@@ -191,7 +191,7 @@ export default [
     "id": "level-medium-13-letter-m",
     "name": "Level 13 Letter M",
     "difficulty": "Medium",
-    "tileTypes": 7,
+    "tileTypes": 8,
     "heightMap": [
       [1, 1, 0, 0, 0, 0, 0, 1, 1],
       [1, 2, 1, 0, 0, 0, 1, 2, 1],
@@ -208,7 +208,7 @@ export default [
     "id": "level-medium-14-target",
     "name": "Level 14 Bullseye Target",
     "difficulty": "Medium",
-    "tileTypes": 8,
+    "tileTypes": 9,
     "heightMap": [
       [1, 1, 1, 1, 1, 1, 1, 1, 1],
       [1, 0, 0, 0, 0, 0, 0, 0, 1],
@@ -225,7 +225,7 @@ export default [
     "id": "level-medium-15-spiral",
     "name": "Level 15 Flat Spiral",
     "difficulty": "Medium",
-    "tileTypes": 8,
+    "tileTypes": 9,
     "heightMap": [
       [1, 1, 1, 1, 1, 1, 1, 1, 1],
       [0, 0, 0, 0, 0, 0, 0, 0, 1],
@@ -242,7 +242,7 @@ export default [
     "id": "level-medium-16-hourglass",
     "name": "Level 16 Hourglass",
     "difficulty": "Medium",
-    "tileTypes": 8,
+    "tileTypes": 10,
     "heightMap": [
       [2, 2, 2, 2, 2, 2, 2, 2, 2],
       [1, 2, 2, 2, 2, 2, 2, 2, 1],
@@ -259,7 +259,7 @@ export default [
     "id": "level-medium-17-wave",
     "name": "Level 17 Grid Waves",
     "difficulty": "Medium",
-    "tileTypes": 8,
+    "tileTypes": 10,
     "heightMap": [
       [1, 2, 1, 0, 1, 1, 1, 0, 1],
       [2, 3, 2, 1, 2, 3, 2, 1, 2],
@@ -276,7 +276,7 @@ export default [
     "id": "level-medium-18-random-c",
     "name": "Level 18 Chaotic Maze",
     "difficulty": "Medium",
-    "tileTypes": 9,
+    "tileTypes": 11,
     "heightMap": [
       [1, 0, 2, 2, 1, 1, 0, 2, 1],
       [2, 2, 0, 1, 2, 2, 1, 0, 2],
@@ -293,7 +293,7 @@ export default [
     "id": "level-medium-19-fortress",
     "name": "Level 19 Small Fortress",
     "difficulty": "Medium",
-    "tileTypes": 9,
+    "tileTypes": 11,
     "heightMap": [
       [2, 0, 2, 0, 2, 0, 2, 0, 2],
       [1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -310,7 +310,7 @@ export default [
     "id": "level-medium-20-pyramid-9",
     "name": "Level 20 Flat Pyramid",
     "difficulty": "Medium",
-    "tileTypes": 9,
+    "tileTypes": 12,
     "heightMap": [
       [1, 1, 1, 1, 1, 1, 1, 1, 1],
       [1, 2, 2, 2, 2, 2, 2, 2, 1],
@@ -327,7 +327,7 @@ export default [
     "id": "level-hard-21-pyramid-10",
     "name": "Level 21 Great Pyramid",
     "difficulty": "Hard",
-    "tileTypes": 10,
+    "tileTypes": 13,
     "heightMap": [
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
       [1, 2, 2, 2, 2, 2, 2, 2, 2, 1],
@@ -345,7 +345,7 @@ export default [
     "id": "level-hard-22-castle",
     "name": "Level 22 Mega Fortress",
     "difficulty": "Hard",
-    "tileTypes": 10,
+    "tileTypes": 14,
     "heightMap": [
       [3, 0, 3, 0, 3, 3, 0, 3, 0, 3],
       [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
@@ -363,7 +363,7 @@ export default [
     "id": "level-hard-23-skull",
     "name": "Level 23 Skull Mountain",
     "difficulty": "Hard",
-    "tileTypes": 10,
+    "tileTypes": 14,
     "heightMap": [
       [0, 0, 1, 2, 2, 2, 2, 1, 0, 0],
       [0, 1, 2, 3, 3, 3, 3, 2, 1, 0],
@@ -381,7 +381,7 @@ export default [
     "id": "level-hard-24-alien",
     "name": "Level 24 Alien Face",
     "difficulty": "Hard",
-    "tileTypes": 11,
+    "tileTypes": 18,
     "heightMap": [
       [0, 1, 1, 0, 0, 0, 0, 1, 1, 0],
       [1, 2, 2, 1, 0, 0, 1, 2, 2, 1],
@@ -399,7 +399,7 @@ export default [
     "id": "level-hard-25-maze-10",
     "name": "Level 25 Deep Maze",
     "difficulty": "Hard",
-    "tileTypes": 11,
+    "tileTypes": 18,
     "heightMap": [
       [3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
       [3, 0, 0, 0, 0, 0, 0, 0, 0, 3],
@@ -417,7 +417,7 @@ export default [
     "id": "level-hard-26-rings",
     "name": "Level 26 Olympic Rings",
     "difficulty": "Hard",
-    "tileTypes": 11,
+    "tileTypes": 17,
     "heightMap": [
       [1, 2, 2, 1, 0, 0, 1, 2, 2, 1],
       [2, 3, 3, 2, 0, 0, 2, 3, 3, 2],
@@ -435,7 +435,7 @@ export default [
     "id": "level-hard-27-crossfire",
     "name": "Level 27 Crossfire Grid",
     "difficulty": "Hard",
-    "tileTypes": 11,
+    "tileTypes": 18,
     "heightMap": [
       [3, 0, 0, 2, 2, 2, 2, 0, 0, 3],
       [0, 3, 0, 2, 1, 1, 2, 0, 3, 0],
@@ -453,7 +453,7 @@ export default [
     "id": "level-hard-28-volcano",
     "name": "Level 28 Volcano Crater",
     "difficulty": "Hard",
-    "tileTypes": 12,
+    "tileTypes": 19,
     "heightMap": [
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
       [1, 2, 2, 2, 2, 2, 2, 2, 2, 1],
@@ -471,7 +471,7 @@ export default [
     "id": "level-hard-29-yin-yang",
     "name": "Level 29 Yin Yang Grid",
     "difficulty": "Hard",
-    "tileTypes": 12,
+    "tileTypes": 21,
     "heightMap": [
       [0, 0, 1, 1, 1, 1, 1, 1, 0, 0],
       [0, 1, 2, 2, 2, 3, 3, 2, 1, 0],
@@ -489,7 +489,7 @@ export default [
     "id": "level-hard-30-random-d",
     "name": "Level 30 Ultimate Chaos",
     "difficulty": "Hard",
-    "tileTypes": 12,
+    "tileTypes": 22,
     "heightMap": [
       [3, 1, 2, 0, 3, 3, 0, 2, 1, 3],
       [1, 3, 1, 3, 2, 2, 3, 1, 3, 1],

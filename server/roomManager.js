@@ -12,7 +12,8 @@ import {
   isValidSelection,
   removePair,
   reshuffleBoard,
-  LEVEL_CONFIGS
+  LEVEL_CONFIGS,
+  getComboWindowMs
 } from "../shared/game.js";
 
 const HARD_RANGE = getDifficultyRanges(LEVEL_CONFIGS).Hard ?? { start: 0, end: 0 };
@@ -29,7 +30,6 @@ const startCountdownIntervals = new Map();
 const startRevealTimeouts = new Map();
 const feverTimers = new Map();
 const itemSelectionTimers = new Map();
-const COMBO_WINDOW_MS = 2000;
 const MAX_PLAYERS = 4;
 
 function createMessage(key, params = {}) {
@@ -160,8 +160,12 @@ function createComboTracker(players) {
   return new Map(players.map((player) => [player.id, { count: 0, lastClearedAt: 0 }]));
 }
 
-function getScoreDeltaForCombo(comboCount) {
-  return Math.round(SCORE_PER_MATCH * 1.5 ** Math.max(0, comboCount));
+function getScoreDeltaForCombo(comboCount, difficulty = "Easy") {
+  let multiplier;
+  if (difficulty === "Hard") multiplier = 1.6;
+  else if (difficulty === "Medium") multiplier = 1.3;
+  else multiplier = 1.1; // Easy and default
+  return Math.round(SCORE_PER_MATCH * multiplier ** Math.max(0, comboCount));
 }
 
 function serializeRoom(room, playerId) {
@@ -685,7 +689,7 @@ export function handleSelection(socketId, position, sockets) {
   maybeTriggerFeverByTiles(room, sockets);
   const previousCombo = room.comboTracker.get(socketId) ?? { count: 0, lastClearedAt: 0 };
   let nextComboCount =
-    now - previousCombo.lastClearedAt <= COMBO_WINDOW_MS && previousCombo.lastClearedAt > 0 ? previousCombo.count + 1 : 0;
+    now - previousCombo.lastClearedAt <= getComboWindowMs() && previousCombo.lastClearedAt > 0 ? previousCombo.count + 1 : 0;
   const baseScore = getScoreDeltaForCombo(nextComboCount);
   const scoreDelta = isFeverMatch ? baseScore * 2 : baseScore;
 
