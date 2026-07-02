@@ -1127,6 +1127,20 @@ button {
   line-height: 1;
   text-shadow: 0 4px 12px rgba(0, 0, 0, 0.24);
   transition: transform 0.2s ease;
+  display: inline-flex;
+  justify-content: flex-end;
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+.countdown-int {
+  text-align: right;
+  min-width: 2ch;
+}
+
+.countdown-dec {
+  text-align: left;
+  min-width: 2ch;
 }
 
 .countdown-card.countdown-low .countdown-card-count {

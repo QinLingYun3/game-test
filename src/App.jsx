@@ -20,7 +20,8 @@ import {
   reshuffleBoard,
   LEVEL_CONFIGS,
   computeLevelCountdown,
-  getTimeBonusMultiplier
+  getTimeBonusMultiplier,
+  getComboTimeBonus
 } from "@shared/game.js";
 import {
   SUPPORTED_LANGUAGES,
@@ -279,8 +280,10 @@ function getChaosIcons(realType) {
 
 function CountdownCard({ total, remaining, t }) {
   const ratio = total > 0 ? Math.max(0, Math.min(1, remaining / total)) : 0;
-  const displayValue = Math.max(0, Math.ceil(remaining));
-  const isLow = displayValue <= 10;
+  const value = Math.max(0, remaining);
+  const intPart = Math.floor(value);
+  const decPart = Math.floor((value % 1) * 10);
+  const isLow = remaining <= 10;
 
   // Interpolate from bright orange (#ff8c00) to vivid red (#ff2a2a)
   const r = Math.round(255);
@@ -295,7 +298,10 @@ function CountdownCard({ total, remaining, t }) {
       style={{ "--countdown-bg": bgColor, "--countdown-ratio": ratio }}
     >
       <span className="countdown-card-label">{t("game.timeLeftLabel")}</span>
-      <span className="countdown-card-count">{displayValue}</span>
+      <span className="countdown-card-count">
+        <span className="countdown-int">{intPart}</span>
+        <span className="countdown-dec">.{decPart}</span>
+      </span>
       <div className="countdown-progress-bar">
         <div className="countdown-progress-fill" style={{ width: `${ratio * 100}%` }} />
       </div>
@@ -890,7 +896,7 @@ function App() {
   const speakCountdown = useCountdownVoice();
 
   // Countdown beep: play beep_low.mp3 when solo countdown ≤ 10 seconds
-  useCountdownBeep(room?.countdownRemaining);
+  useCountdownBeep(room?.countdownRemaining != null ? Math.floor(room.countdownRemaining) : null);
 
   // Finish sound: play finish.mp3 when entering results phase
   useFinishSound(room?.phase);
@@ -939,7 +945,7 @@ function App() {
       setRoom((prev) => {
         if (!prev || prev.code !== "SOLO" || prev.phase !== "game") return prev;
         if (prev.startCountdown != null || prev.startReveal || prev.reshuffleCountdown || soloReshufflePending) return prev;
-        const remaining = (prev.countdownRemaining ?? 0) - 1;
+        const remaining = Math.max(0, (prev.countdownRemaining ?? 0) - 0.1);
         if (remaining <= 0) {
           // Time's up — transition to results
           return {
@@ -951,7 +957,7 @@ function App() {
         }
         return { ...prev, countdownRemaining: remaining };
       });
-    }, 1000);
+    }, 100);
     return () => clearInterval(timer);
   }, [room?.code, room?.phase, room?.startCountdown, room?.startReveal, room?.reshuffleCountdown, soloReshufflePending]);
 
@@ -1309,7 +1315,7 @@ function App() {
           const nextLevelTotal = computeLevelCountdown(nextIdx);
           const currentLevelDifficulty = LEVEL_CONFIGS[currentRoom.levelIndex]?.difficulty ?? "Easy";
           const timeBonusMultiplier = getTimeBonusMultiplier(currentLevelDifficulty);
-          const timeBonusScore = Math.max(0, baseRemaining) * timeBonusMultiplier;
+          const timeBonusScore = Math.ceil(Math.max(0, baseRemaining) * timeBonusMultiplier);
           const playersWithTimeBonus = nextPlayers.map((player) =>
             player.id === playerId ? { ...player, score: player.score + timeBonusScore } : player
           );
@@ -1448,7 +1454,7 @@ function App() {
         const nextPlayers = currentRoom.players.map((player) =>
           player.id === playerId ? { ...player, score: player.score + scoreDelta, maxCombo: isSolo ? Math.max(player.maxCombo ?? 0, combo.count) : player.maxCombo } : player
         );
-        const comboTimeBonus = isSolo && combo.count >= 1 ? 2 : 0;
+        const comboTimeBonus = isSolo && combo.count >= 1 ? getComboTimeBonus(currentLevelDifficulty) : 0;
         const nextCountdownRemaining = isSolo
           ? Math.max(0, (currentRoom.countdownRemaining ?? 0) + comboTimeBonus)
           : currentRoom.countdownRemaining;
@@ -1490,7 +1496,7 @@ function App() {
           const nextLevelTotal = computeLevelCountdown(nextIdx);
           const currentLevelDifficulty = LEVEL_CONFIGS[currentRoom.levelIndex]?.difficulty ?? "Easy";
           const timeBonusMultiplier = getTimeBonusMultiplier(currentLevelDifficulty);
-          const timeBonusScore = Math.max(0, nextCountdownRemaining) * timeBonusMultiplier;
+          const timeBonusScore = Math.ceil(Math.max(0, nextCountdownRemaining) * timeBonusMultiplier);
           const playersWithTimeBonus = nextPlayers.map((player) =>
             player.id === playerId ? { ...player, score: player.score + timeBonusScore } : player
           );
