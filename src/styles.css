@@ -1609,14 +1609,40 @@ button {
 }
 
 .leaderboard-header {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   text-align: center;
 }
 
-.leaderboard-header h3 {
-  margin: 0;
-  font-size: 24px;
-  color: #fff4da;
+.leaderboard-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 0 2px;
+}
+
+.leaderboard-tab {
+  flex: 1;
+  padding: 8px 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 241, 211, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 248, 230, 0.65);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.leaderboard-tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 248, 230, 0.9);
+}
+
+.leaderboard-tab.active {
+  background: rgba(244, 207, 131, 0.18);
+  border-color: rgba(244, 207, 131, 0.45);
+  color: #f4cf83;
 }
 
 .leaderboard-list {
