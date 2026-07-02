@@ -163,6 +163,7 @@ function getLeaderboardPayload(period = "all") {
   const periodStart = period !== "all" ? getPeriodStart(period) : 0;
   return soloLeaderboard
     .slice()
+    .filter((entry) => entry.score > 0)
     .filter((entry) => period === "all" || entry.submittedAt >= periodStart)
     .sort(compareLeaderboardEntries)
     .slice(0, LEADERBOARD_LIMIT)
@@ -192,7 +193,7 @@ async function submitSoloScore(sessionId, score) {
     return { error: createMessage("error.invalidSoloSession") };
   }
 
-  if (!session.submitted) {
+  if (!session.submitted && score > 0) {
     const entry = {
       sessionId,
       nickname: session.nickname,
@@ -206,6 +207,9 @@ async function submitSoloScore(sessionId, score) {
     session.submitted = true;
     session.rank = soloLeaderboard.findIndex((item) => item.sessionId === sessionId) + 1;
     await queueLeaderboardPersist();
+  } else if (!session.submitted) {
+    session.submitted = true;
+    session.rank = null;
   }
 
   return {
