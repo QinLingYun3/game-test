@@ -1370,11 +1370,14 @@ function App() {
         if (!currentRoom || currentRoom.code !== "SOLO") return currentRoom;
         if (currentRoom.reshuffleCountdown) return currentRoom;
         const reshuffled = reshuffleBoard(currentRoom.board);
+        const reshufflePenalty = 4;
+        const nextCountdown = Math.max(0, (currentRoom.countdownRemaining ?? 0) - reshufflePenalty);
         return {
           ...currentRoom,
           board: reshuffled,
           remainingTiles: countRemainingTiles(reshuffled),
           removablePairs: countRemovablePairs(reshuffled),
+          countdownRemaining: nextCountdown,
           message: createMessage("server.boardReshuffled"),
           lastMatch: null,
           lastCombo: null,
