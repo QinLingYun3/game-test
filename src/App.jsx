@@ -18,6 +18,7 @@ import {
   reloadLevelConfig,
   removePair,
   reshuffleBoard,
+  spreadLastTwoTilesIfStacked,
   LEVEL_CONFIGS,
   computeLevelCountdown,
   getTimeBonusMultiplier,
@@ -1282,7 +1283,7 @@ function App() {
         const match = findAnyRemovablePair(currentRoom.board);
         if (!match) return currentRoom;
         const { pair, path, tile, depths } = match;
-        const nextBoard = removePair(currentRoom.board, pair[0], pair[1]);
+        const nextBoard = spreadLastTwoTilesIfStacked(removePair(currentRoom.board, pair[0], pair[1]));
         const nextComboTracker = new Map(currentRoom.comboTracker);
         nextComboTracker.set(playerId, { count: 0, lastClearedAt: 0 });
         const nextPlayers = currentRoom.players;
@@ -1449,7 +1450,7 @@ function App() {
           };
         }
 
-        const nextBoard = removePair(currentRoom.board, current, nextPosition);
+        const nextBoard = spreadLastTwoTilesIfStacked(removePair(currentRoom.board, current, nextPosition));
         const isSolo = currentRoom.code === "SOLO";
         const nextComboTracker = new Map(currentRoom.comboTracker);
         const currentLevelDifficulty = isSolo ? (LEVEL_CONFIGS[currentRoom.levelIndex]?.difficulty ?? "Easy") : "Easy";

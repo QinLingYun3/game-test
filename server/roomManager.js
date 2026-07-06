@@ -12,6 +12,7 @@ import {
   isValidSelection,
   removePair,
   reshuffleBoard,
+  spreadLastTwoTilesIfStacked,
   LEVEL_CONFIGS,
   getComboWindowMs
 } from "../shared/game.js";
@@ -684,7 +685,7 @@ export function handleSelection(socketId, position, sockets) {
     return { room };
   }
 
-  room.board = removePair(room.board, current, position);
+  room.board = spreadLastTwoTilesIfStacked(removePair(room.board, current, position));
   room.selections.delete(socketId);
   maybeTriggerFeverByTiles(room, sockets);
   const previousCombo = room.comboTracker.get(socketId) ?? { count: 0, lastClearedAt: 0 };
@@ -753,7 +754,7 @@ export function handleQuickMatch(socketId, sockets) {
   if (!match) return { error: createMessage("error.noRemovablePairs") };
 
   const { pair, path, tile, depths } = match;
-  room.board = removePair(room.board, pair[0], pair[1]);
+  room.board = spreadLastTwoTilesIfStacked(removePair(room.board, pair[0], pair[1]));
   room.selections.delete(socketId);
   maybeTriggerFeverByTiles(room, sockets);
   const now = Date.now();
