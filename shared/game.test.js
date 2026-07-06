@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { countRemovablePairs, findPath, hasAnyMoves, isValidSelection, reshuffleBoard } from "./game.js";
+import { countRemovablePairs, findPath, hasAnyMoves, isValidSelection, reshuffleBoard, spreadLastTwoTilesIfStacked, countRemainingTiles } from "./game.js";
 
 const TEST_ROWS = 10;
 const TEST_COLS = 10;
@@ -128,4 +128,51 @@ test("path is blocked by buried tiles on the same endpoint layer", () => {
   board[3][4] = [tile("down-right-base", "base"), tile("down-right-mid", "seal"), tile("down-right-top", "cap")];
 
   assert.equal(isValidSelection(board, { row: 2, col: 2 }, { row: 2, col: 4 }).ok, false);
+});
+
+test("spreadLastTwoTilesIfStacked splits the last two stacked tiles into separate cells", () => {
+  const board = emptyBoard();
+  board[2][2] = [tile("bottom", "dog"), tile("top", "dog")];
+
+  assert.equal(countRemainingTiles(board), 2);
+  assert.equal(hasAnyMoves(board), false);
+
+  const spread = spreadLastTwoTilesIfStacked(board);
+
+  assert.equal(countRemainingTiles(spread), 2);
+  assert.equal(hasAnyMoves(spread), true);
+
+  let occupiedCells = 0;
+  let stillStacked = false;
+  for (let row = 0; row < TEST_ROWS; row += 1) {
+    for (let col = 0; col < TEST_COLS; col += 1) {
+      if (spread[row][col].length > 0) occupiedCells += 1;
+      if (spread[row][col].length === 2) stillStacked = true;
+    }
+  }
+  assert.equal(occupiedCells, 2);
+  assert.equal(stillStacked, false);
+});
+
+test("spreadLastTwoTilesIfStacked leaves already-separated tiles untouched", () => {
+  const board = emptyBoard();
+  board[0][0] = [tile("a", "dog")];
+  board[0][2] = [tile("b", "dog")];
+
+  assert.equal(hasAnyMoves(board), true);
+
+  const spread = spreadLastTwoTilesIfStacked(board);
+  assert.deepEqual(spread, board);
+});
+
+test("spreadLastTwoTilesIfStacked ignores boards with more than two tiles", () => {
+  const board = emptyBoard();
+  board[2][2] = [tile("bottom", "dog"), tile("top", "dog")];
+  board[0][0] = [tile("other", "cat")];
+  board[0][2] = [tile("other2", "cat")];
+
+  assert.equal(countRemainingTiles(board), 4);
+
+  const spread = spreadLastTwoTilesIfStacked(board);
+  assert.deepEqual(spread, board);
 });

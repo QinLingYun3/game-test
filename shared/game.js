@@ -718,6 +718,50 @@ export function removePair(board, first, second) {
   return nextBoard;
 }
 
+export function spreadLastTwoTilesIfStacked(board) {
+  if (countRemainingTiles(board) !== 2) return board;
+
+  const boardRows = board.length;
+  const boardCols = board[0]?.length ?? 0;
+
+  let stackedAt = null;
+  for (let row = 0; row < boardRows; row += 1) {
+    for (let col = 0; col < boardCols; col += 1) {
+      if (board[row][col].length === 2) {
+        stackedAt = { row, col };
+        break;
+      }
+    }
+    if (stackedAt) break;
+  }
+
+  if (!stackedAt) return board;
+
+  const [bottomTile, topTile] = board[stackedAt.row][stackedAt.col];
+
+  const candidates = [];
+  for (let row = 0; row < boardRows; row += 1) {
+    for (let col = 0; col < boardCols; col += 1) {
+      if (row === stackedAt.row && col === stackedAt.col) continue;
+      if (board[row][col].length !== 0) continue;
+      const distance = Math.abs(row - stackedAt.row) + Math.abs(col - stackedAt.col);
+      candidates.push({ row, col, distance });
+    }
+  }
+  candidates.sort((a, b) => a.distance - b.distance);
+
+  for (const { row, col } of candidates) {
+    const candidate = board.map((r) => r.map((cell) => [...cell]));
+    candidate[stackedAt.row][stackedAt.col] = [topTile];
+    candidate[row][col] = [bottomTile];
+    if (hasAnyMoves(candidate)) {
+      return candidate;
+    }
+  }
+
+  return board;
+}
+
 export function isPositionSelectable(board, position) {
   return Boolean(getTopTile(board, position.row, position.col));
 }
