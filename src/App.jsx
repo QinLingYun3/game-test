@@ -279,7 +279,7 @@ function getChaosIcons(realType) {
   return [TILE_TYPES.find((t) => t.key === realType).icon, ...shuffled];
 }
 
-function CountdownCard({ total, remaining, t }) {
+function CountdownCard({ total, remaining, t, onPause }) {
   const ratio = total > 0 ? Math.max(0, Math.min(1, remaining / total)) : 0;
   const value = Math.max(0, remaining);
   const intPart = Math.floor(value);
@@ -302,9 +302,36 @@ function CountdownCard({ total, remaining, t }) {
       <span className="countdown-card-count">
         <span className="countdown-int">{intPart}</span>
         <span className="countdown-dec">.{decPart}</span>
+        {onPause && (
+          <button
+            type="button"
+            className="pause-button"
+            aria-label={t("game.soloPauseButton")}
+            onClick={onPause}
+          >
+            ⏸
+          </button>
+        )}
       </span>
       <div className="countdown-progress-bar">
         <div className="countdown-progress-fill" style={{ width: `${ratio * 100}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function SoloPauseOverlay({ elapsed, onResume, t }) {
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = elapsed % 60;
+  const timeStr = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+
+  return (
+    <div className="solo-pause-overlay">
+      <div className="solo-pause-panel">
+        <p className="solo-pause-timer">{t("game.soloPausePrompt", { time: timeStr })}</p>
+        <button type="button" className="solo-pause-resume" onClick={onResume}>
+          ▶️ {t("game.soloResume")}
+        </button>
       </div>
     </div>
   );
@@ -771,6 +798,8 @@ function App() {
   const [chaosEffect, setChaosEffect] = useState(null);
   const [feverEffect, setFeverEffect] = useState(null);
   const [soloReshufflePending, setSoloReshufflePending] = useState(null);
+  const [soloPaused, setSoloPaused] = useState(false);
+  const [soloPauseElapsed, setSoloPauseElapsed] = useState(0);
   const [dragOverTarget, setDragOverTarget] = useState(null);
   const playerCardRefs = useRef(new Map());
   const previousPlayerPositionsRef = useRef(new Map());
@@ -890,8 +919,8 @@ function App() {
   // Sound: play combo.mp3 when combo occurs (count >= 2)
   const playComboSound = useComboSound(room?.lastCombo?.token ?? null);
 
-  // Background music: loop happy.mp3 continuously, pause on results screen
-  const bgmPlaying = room?.phase !== "results";
+  // Background music: loop happy.mp3 continuously, pause on results screen or solo pause
+  const bgmPlaying = room?.phase !== "results" && !soloPaused;
   useBgm({ playing: bgmPlaying, volume: 0.4 });
 
   // English countdown voice: speak 3, 2, 1, Go! during game start countdown
@@ -940,13 +969,13 @@ function App() {
   // Solo mode countdown tick
   useEffect(() => {
     if (room?.code !== "SOLO" || room?.phase !== "game") return undefined;
-    if (room?.startCountdown != null || room?.startReveal || room?.reshuffleCountdown || soloReshufflePending) return undefined;
+    if (room?.startCountdown != null || room?.startReveal || room?.reshuffleCountdown || soloReshufflePending || soloPaused) return undefined;
     if ((room?.countdownRemaining ?? 0) <= 0) return undefined;
 
     const timer = setInterval(() => {
       setRoom((prev) => {
         if (!prev || prev.code !== "SOLO" || prev.phase !== "game") return prev;
-        if (prev.startCountdown != null || prev.startReveal || prev.reshuffleCountdown || soloReshufflePending) return prev;
+        if (prev.startCountdown != null || prev.startReveal || prev.reshuffleCountdown || soloReshufflePending || soloPaused) return prev;
         const remaining = Math.max(0, (prev.countdownRemaining ?? 0) - 0.1);
         if (remaining <= 0) {
           // Time's up — transition to results
@@ -961,7 +990,26 @@ function App() {
       });
     }, 100);
     return () => clearInterval(timer);
-  }, [room?.code, room?.phase, room?.startCountdown, room?.startReveal, room?.reshuffleCountdown, soloReshufflePending]);
+  }, [room?.code, room?.phase, room?.startCountdown, room?.startReveal, room?.reshuffleCountdown, soloReshufflePending, soloPaused]);
+
+  // Solo pause positive timer — counts up every second while paused
+  useEffect(() => {
+    if (!soloPaused) return undefined;
+    const timer = setInterval(() => {
+      setSoloPauseElapsed((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [soloPaused]);
+
+  function onSoloPause() {
+    setSoloPaused(true);
+    setSoloPauseElapsed(0);
+  }
+
+  function onSoloResume() {
+    setSoloPaused(false);
+    setSoloPauseElapsed(0);
+  }
 
   useEffect(() => {
     if (room?.lastMatch?.path) {
@@ -1878,6 +1926,14 @@ function App() {
           />
         )}
 
+        {soloPaused && room?.phase === "game" && (
+          <SoloPauseOverlay
+            elapsed={soloPauseElapsed}
+            onResume={onSoloResume}
+            t={t}
+          />
+        )}
+
         {room && room.phase === "game" && (
           <section className="panel game-panel">
             <div className="game-topbar">
@@ -1898,6 +1954,7 @@ function App() {
                     total={room?.countdownTotal ?? 0}
                     remaining={room?.countdownRemaining ?? 0}
                     t={t}
+                    onPause={room?.phase === "game" ? onSoloPause : undefined}
                   />
                 )}
                 <div className="player-card removable-card" aria-label={t("game.countPill", { count: room.removablePairs ?? 0 })}>
